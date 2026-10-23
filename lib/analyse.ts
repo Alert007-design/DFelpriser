@@ -42,15 +42,19 @@ export interface Analyse {
   forskelligBilligstePeriode: { andetStart: number; udenOverlap: number; dage: number };
 }
 
-/** Kun fuldstændige døgn indgår. Døgn med huller tælles ikke med og skjules ikke. */
-export function analyser(data: Dagsdata, fra: string, til: string): Analyse {
+/**
+ * Kun fuldstændige døgn indgår. Døgn med huller tælles ikke med og skjules ikke.
+ * Med historikFra måles kun perioden fra–til, men modellen må bruge priser fra historikFra (fx vinteren alene,
+ * hvor efteråret før er kendt historik). Uden historikFra bruges de første 28 dage af perioden som historik.
+ */
+export function analyser(data: Dagsdata, fra: string, til: string, historikFra?: string): Analyse {
   const dage: Record<Omraade, { dato: string; o: Dagsopsummering }[]> = { DK1: [], DK2: [] };
   const historik: Record<Omraade, Historik> = { DK1: new Map(), DK2: new Map() };
   for (const omr of ["DK1", "DK2"] as const) {
-    for (let d = fra; d <= til; d = laegDage(d, 1)) {
+    for (let d = historikFra ?? fra; d <= til; d = laegDage(d, 1)) {
       const slots = data[omr][d] ?? [];
       if (!erFuldDag(d, slots).fuld) continue;
-      dage[omr].push({ dato: d, o: opsummer(d, slots) });
+      if (d >= fra) dage[omr].push({ dato: d, o: opsummer(d, slots) });
       historik[omr].set(d, lokalTimeprofil(slots));
     }
   }
@@ -71,8 +75,8 @@ export function analyser(data: Dagsdata, fra: string, til: string): Analyse {
     }
     const forskelle = l.map((x) => x.o.forskel);
     const udfald = {
-      1: tilbageskuendeTest(historik[omr], laegDage(fra, 28), laegDage(til, -1), 1),
-      2: tilbageskuendeTest(historik[omr], laegDage(fra, 28), laegDage(til, -2), 2),
+      1: tilbageskuendeTest(historik[omr], historikFra ? fra : laegDage(fra, 28), laegDage(til, -1), 1),
+      2: tilbageskuendeTest(historik[omr], historikFra ? fra : laegDage(fra, 28), laegDage(til, -2), 2),
     };
     pr[omr] = {
       dage: l.length,
