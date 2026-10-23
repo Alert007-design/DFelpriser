@@ -4,7 +4,7 @@
 
 Tjenesten er **bygget og testet med testdata**, og prisparseren er nu **prøvet live mod Energi Data Service** (`DayAheadPrices`): 387 døgn fra 1. oktober 2025 til 22. oktober 2026 er hentet og tolket uden fejl, og felter, opløsning og tidszone er bekræftet. Tjenesten er **ikke lanceret**, og der er endnu ikke hentet *næste døgns* priser via cron-ruten.
 
-Den historiske analyse er kørt for hele perioden og for vintermånederne alene, se [ANALYSE.md](ANALYSE.md). Prognosemodellen `profil-v1` består de foreslåede krav (45 dage, 5 %) for DK1 og DK2, dag 2 og dag 3, både over hele perioden og i vinteren 2025/26 alene. Den er god til at udpege døgnets billigste tidsrum, men upræcis på selve prisniveauet, og der er kun målt på én vinter.
+Den historiske analyse er kørt for hele perioden og for vintermånederne alene, se [ANALYSE.md](ANALYSE.md). Prognosemodellen `profil-v1` består de godkendte krav (45 dage, 5 %) for DK1 og DK2, dag 2 og dag 3, både over hele perioden og i vinteren 2025/26 alene. Den er god til at udpege døgnets billigste tidsrum, men upræcis på selve prisniveauet, og der er kun målt på én vinter.
 
 ## Hvad er gjort (efter opgavens rækkefølge)
 
@@ -18,10 +18,9 @@ Den historiske analyse er kørt for hele perioden og for vintermånederne alene,
 
 ## Hvad kræver din beslutning eller handling
 
-1. **Kravene til prognosen** (45 dage, 5 %): mine forslag, skal godkendes. Analysen viser, at modellen består dem, men se forbeholdene i [ANALYSE.md](ANALYSE.md).
-2. **Jurist:** [GDPR.md](GDPR.md) har listen. Intet er aktiveret.
-3. **Politisk tekst:** feltet er tomt, indtil Dansk Folkeparti leverer teksten.
-4. **Opsætning** af Supabase, Resend, Vercel og domæne: [DRIFT.md](DRIFT.md).
+1. **Jurist:** [GDPR.md](GDPR.md) har listen. Intet er aktiveret.
+2. **Politisk tekst:** feltet er tomt, indtil Dansk Folkeparti leverer teksten.
+3. **Opsætning** af Supabase, Resend, Vercel og domæne: [DRIFT.md](DRIFT.md).
 
 ## Kendte begrænsninger
 

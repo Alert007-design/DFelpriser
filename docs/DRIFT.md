@@ -43,7 +43,7 @@ Disse trin kræver dine konti og er ikke udført:
 3. **Vercel:** nyt projekt fra dette repo, region fra1, Pro-plan (cron hvert 5. minut kræver Pro). Sæt variablerne fra `.env.example`: `TOKEN_HEMMELIGHED`, `CRON_SECRET`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`, `PRISKILDE=live`. **Lad `JURA_GODKENDT=nej` og `OFFENTLIG=nej`.**
 4. **Netværk:** hvis jobbene kører et sted med begrænset udgående trafik, skal `api.energidataservice.dk` tillades.
 5. **Fyld historik:** kald `/api/cron/hent-priser?fra=2026-06-01&til=2026-06-30` (med `Authorization: Bearer <CRON_SECRET>`) i blokke på højst 31 døgn tilbage til mindst 130 dage. Prognosen kræver historik.
-6. **Kør `npm run analyse`** med netadgang og læs rapporten i `docs/`.
+6. **Analysen mod rigtige priser er gennemført** (se [ANALYSE.md](ANALYSE.md)); modellen består de godkendte krav. Gentag med `npm run analyse -- <fra> <til> [<delperiode-fra> <delperiode-til>]`, når der er nye data, fx efter næste vinter.
 7. **Test:** tilføj dine egne adresser i `TESTMODTAGERE`, tilmeld dig, bekræft, og afvent kl. 16 (eller kald `/api/cron/udsend`).
 8. **Lancering (først efter din godkendelse og juridisk godkendelse):** `JURA_GODKENDT=ja`, `OFFENTLIG=ja`, og peg domænet på projektet.
 

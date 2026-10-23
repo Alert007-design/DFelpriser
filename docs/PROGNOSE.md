@@ -22,7 +22,7 @@ Mailen siger det i klart sprog ("I 8 ud af 10 af modellens seneste prognoser lå
 
 **Billigste dag af de tre:** udpeges kun, hvis den billigste dags øvre grænse ligger under alle andres nedre grænse. Ellers står der, at det er for tæt til at sige. Kendt pris har ingen usikkerhed.
 
-## Krav før en prognose vises (forslag til godkendelse)
+## Krav før en prognose vises (godkendt)
 
 Ved hver udsendelse køres en tilbageskuende test på de seneste 90 dage for begge horisonter. Prognosen vises kun, hvis modellen **for begge** horisonter:
 
@@ -32,10 +32,11 @@ Ved hver udsendelse køres en tilbageskuende test på de seneste 90 dage for beg
 
 Ellers udelades prognosen, og mailen siger det. Alt logges i driftsloggen, og de udsendte prognoser gemmes i tabellen `prognoser`, så admin kan sammenligne dem med de faktiske priser.
 
-Tallene 45 dage og 5 % er mine forslag, ikke et dokumenteret standardkrav. De skal godkendes eller ændres (`KRAV` i `lib/prognose/evaluering.ts`).
+Tallene 45 dage og 5 % er ikke et dokumenteret standardkrav, men **er godkendt** og gælder som de står (`KRAV` i `lib/prognose/evaluering.ts`). Ændres de, skal det godkendes igen.
 
 ## Hvad der er testet, og hvad der ikke er
 
 - **Testet:** mekanikken (ingen kig ind i fremtiden, ingen prognose ved for lidt data, kravet slår til og fra korrekt, usikkerhedsintervaller, vurdering af billigste dag) med opdigtede data i `test/prognose.test.ts` og `test/udsendelse.test.ts`.
-- **Ikke gjort:** test mod rigtige priser. Der var ingen adgang til dem. **Der findes derfor ingen dokumenteret træfsikkerhed for modellen.** Det er ikke gætværk, men et åbent punkt: kør `npm run analyse` (lister punkt 5 i opgaven) med netadgang. Hvis modellen ikke består kravet, vises ingen prognose, og tjenesten er stadig nyttig med de kendte priser.
-- **Næste skridt med netadgang:** tilføj vindprognose (`Forecasts_Hour`) som forklarende variabel, test igen, og lad kun den bedste model komme igennem kravet.
+- **Testet mod rigtige priser:** `npm run analyse` er kørt mod Energi Data Service (`DayAheadPrices`) for 1. oktober 2025 til 22. oktober 2026 og for vinteren 2025/26 (1. december–28. februar) alene. Modellen består de godkendte krav for DK1 og DK2, dag 2 og dag 3, både over hele perioden og i vinteren alene. Tal og forbehold står i [ANALYSE.md](ANALYSE.md). Kort sagt: modellen er god til at udpege døgnets billigste tidsrum, men upræcis på selve prisniveauet, og der er kun målt på én vinter.
+- **Stadig åbent:** modellen er ikke testet på en anden vinter, og kravet køres fortsat ved hver udsendelse, så prognosen udelades automatisk, hvis modellen engang ikke slår de enkle metoder.
+- **Mulig forbedring:** tilføj vindprognose (`Forecasts_Hour`) som forklarende variabel, test igen, og lad kun den bedste model komme igennem kravet. Ikke bygget.

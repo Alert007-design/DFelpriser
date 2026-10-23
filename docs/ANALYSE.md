@@ -129,7 +129,7 @@ Prognosen må vises (dag 2): ja – modellen slår begge enkle metoder. Dag 3: j
 
 # Vurdering af prognosen
 
-## Består modellen kravene (mindst 45 dage, mindst 5 % bedre end begge enkle metoder)?
+## Består modellen kravene (mindst 45 dage, mindst 5 % bedre end begge enkle metoder; kravene er godkendt)?
 
 **Ja, i alle otte kombinationer** (to områder × to horisonter × hele perioden og vinteren alene). Antal målte dage er 357-358 for hele perioden og 88-89 for vinteren, langt over 45. Forbedringen i forhold til den bedste af de to enkle metoder, målt som mindre fejl på dagens gennemsnitspris og mindre fortrydelse ved billigste vindue:
 
@@ -160,10 +160,10 @@ Den knappeste margen er DK2 dag 2 på hele perioden (−7 % på dagsgennemsnitte
 
 1. **Kun én vinter** (2025/26). At modellen består på denne ene vinter, viser ikke, at den gør det i en anden, fx en usædvanlig kold og vindstille vinter. Der er ingen test af netop de perioder, hvor priserne er mest ekstreme, ud over det der tilfældigt indgik.
 2. **Dagene er ikke uafhængige.** Modellen bruger de seneste dage som grundlag, så nabodage ligner hinanden. De 90 vinterdage er derfor færre rigtige prøver, end tallet antyder, og der er ikke beregnet usikkerhed på forskellene mellem metoderne.
-3. **Kravene er stadig mine forslag** (45 dage, 5 %), ikke godkendt af Dansk Folkeparti. De siger intet om, hvor præcis prognosen er i forhold til hvad en kunde har brug for, kun at den slår to enkle metoder.
+3. **Kravene (45 dage, 5 %) er godkendt**, men de siger intet om, hvor præcis prognosen er i forhold til hvad en kunde har brug for, kun at den slår to enkle metoder.
 4. **Kun spotpris.** Der er ingen nettariffer (som ofte er højere i spidsbelastning), afgifter eller moms. Den faktiske besparelse for en husholdning er ikke målt, og forbrug kan ikke altid flyttes.
 5. **Ingen vejr- eller vinddata** i modellen.
 
 ## Konklusion
 
-Modellen `profil-v1` opfylder de foreslåede krav for DK1 og DK2, for dag 2 og dag 3, både over hele perioden og i vintermånederne alene. Prognosen kan derfor vises som en *vejledende forventning om hvornår på døgnet strømmen er billigst*, med de usikkerhedsangivelser, der er beskrevet i `docs/PROGNOSE.md`. Den må ikke fremstilles som en sikker pris eller en garanteret billigste dag. Den automatiske spærre, der kører kravet ved hver udsendelse, bør blive stående. Kravene bør godkendes, og analysen køres igen, når der er en ny vinter at måle på.
+Modellen `profil-v1` opfylder de godkendte krav (mindst 45 målte dage og mindst 5 % bedre end begge enkle metoder) for DK1 og DK2, for dag 2 og dag 3, både over hele perioden og i vintermånederne alene. Prognosen kan derfor vises som en *vejledende forventning om hvornår på døgnet strømmen er billigst*, med de usikkerhedsangivelser, der er beskrevet i `docs/PROGNOSE.md`. Den må ikke fremstilles som en sikker pris eller en garanteret billigste dag. Den automatiske spærre, der kører kravet ved hver udsendelse, bør blive stående. Kravene er godkendt og ændres ikke. Analysen bør køres igen, når der er en ny vinter at måle på.
