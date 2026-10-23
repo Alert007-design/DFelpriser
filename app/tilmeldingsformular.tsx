@@ -80,7 +80,7 @@ export function Tilmeldingsformular({
       <h2 id="tilmeld-overskrift">Få strømpriserne i din indbakke hver dag kl. 16</h2>
       {!aaben && (
         <p className="udkast">
-          <strong>Tilmeldingen er ikke åbnet endnu.</strong> Formularen kan ses, men der tages ikke imod tilmeldinger.
+          <strong>Tilmeldingen er ikke åbnet endnu.</strong> Formularen kan ses, men kun testadresser kan tilmeldes.
         </p>
       )}
       <form method="post" action="/api/tilmeld" onSubmit={indsend}>
@@ -143,7 +143,7 @@ export function Tilmeldingsformular({
         </div>
         <Feltfejl id="politik_samtykke-fejl" tekst={fejl.politik_samtykke} />
 
-        <button className="knap" type="submit" disabled={sender || !aaben}>
+        <button className="knap" type="submit" disabled={sender}>
           {sender ? "Sender …" : "Tilmeld mig"}
         </button>
         {besked && !besked.ok && (
