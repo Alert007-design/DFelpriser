@@ -14,7 +14,7 @@ const mail = elprisMail({
   omraade: "DK2", postnummer: "2100", dag, serie: timeserie(slots),
   prognose: { dage: [prog("2026-10-25", 1, 90), prog("2026-10-26", 2, 105)], vurdering: { type: "taet_loeb", datoer: ["2026-10-24", "2026-10-25"] } },
   dfBudskab: "EKSEMPELTEKST fra Dansk Folkeparti (leveres af partiet).",
-  links: { hjemmeside: "http://localhost:3111", logo: "http://localhost:3111/mail/logo-lys.png", bolge: "http://localhost:3111/mail/bolge.png", privatliv: "#", stop: "#", stopEtKlik: "#", skiftPostnummer: "#", politikFra: "#" },
+  links: { hjemmeside: "http://localhost:3111", logo: "http://localhost:3111/mail/logo-lys.png", bolge: "http://localhost:3111/mail/bolge.png", privatliv: "#", stop: "#", stopEtKlik: "#", skiftPostnummer: "#", slet: "#" },
 });
 writeFileSync(process.argv[2] ?? "mail.html", mail.html);
 console.log(mail.subject);

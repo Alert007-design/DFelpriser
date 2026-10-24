@@ -35,10 +35,13 @@ export interface MailLinks {
   logo: string;
   bolge: string;
   privatliv: string;
+  /** Stopper kun den daglige mail (siden /afmeld). Personen og samtykket bevares. */
   stop: string;
+  /** Mailprogrammernes one-click-afmelding (RFC 8058). Gør det samme som stop. */
   stopEtKlik: string;
   skiftPostnummer: string;
-  politikFra?: string;
+  /** Fuld sletning af alle oplysninger på personens egen anmodning (siden /slet med bekræftelse). */
+  slet: string;
 }
 
 export interface PrognoseDel {
@@ -52,7 +55,7 @@ export interface MailIndhold {
   dag: Dagsopsummering;
   serie: Soejle[];
   prognose: PrognoseDel | null;
-  /** Politisk tekst fra Dansk Folkeparti. Kun med, hvis modtageren har givet det politiske samtykke. */
+  /** Politisk tekst fra Dansk Folkeparti. Kun med, hvis modtagerens samtykke dækker politisk information. */
   dfBudskab?: string;
   links: MailLinks;
 }
@@ -189,10 +192,9 @@ Kilde: ${esc(KILDE_TEKST)}. Alle priser er øre pr. kWh. Priserne følger marked
 DF-Elpriser er en gratis service fra Dansk Folkeparti. Du får mailen, fordi du har tilmeldt dig og bekræftet det.<br>
 <a href="${esc(i.links.hjemmeside)}" style="color:#ffffff;text-decoration:underline">Se priser og prognoser på hjemmesiden</a> ·
 <a href="${esc(i.links.skiftPostnummer)}" style="color:#ffffff;text-decoration:underline">Skift postnummer</a> ·
-<a href="${esc(i.links.privatliv)}" style="color:#ffffff;text-decoration:underline">Privatlivspolitik</a><br>
-${i.links.politikFra ? `<a href="${esc(i.links.politikFra)}" style="color:#ffffff;text-decoration:underline">Stop politisk information, men behold elpriserne</a><br>` : ""}
-<a href="${esc(i.links.stop)}" style="color:#ffffff;text-decoration:underline"><strong>Afmeld nyhedsbrevet</strong></a><br>
-Spørgsmål: ${KONTAKT_EMAIL}
+<a href="${esc(i.links.privatliv)}" style="color:#ffffff;text-decoration:underline">Privatlivspolitik</a>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 14px 0"><tr><td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:4px"><a href="${esc(i.links.stop)}" style="display:inline-block;${FONT};font-size:14px;font-weight:bold;color:${BLAA};text-decoration:none;padding:12px 20px">STOP modtagelse af dette nyhedsbrev</a></td></tr></table>
+<span style="font-size:11px;line-height:16px;color:#9fb0cc">Vil du have alle dine oplysninger hos os slettet, kan du <a href="${esc(i.links.slet)}" style="color:#9fb0cc;text-decoration:underline">gøre det her</a> eller skrive til ${KONTAKT_EMAIL}.</span>
 </td></tr>
 </table>
 </td></tr></table>
@@ -245,8 +247,10 @@ DF-Elpriser er en gratis service fra Dansk Folkeparti.
 Hjemmeside: ${i.links.hjemmeside}
 Skift postnummer: ${i.links.skiftPostnummer}
 Privatlivspolitik: ${i.links.privatliv}
-${i.links.politikFra ? `Stop politisk information (elpriserne fortsætter): ${i.links.politikFra}\n` : ""}Afmeld nyhedsbrevet: ${i.links.stop}
-Spørgsmål: ${KONTAKT_EMAIL}
+
+STOP modtagelse af dette nyhedsbrev: ${i.links.stop}
+
+Vil du have alle dine oplysninger hos os slettet: ${i.links.slet} (eller skriv til ${KONTAKT_EMAIL}).
 `;
 
   return {

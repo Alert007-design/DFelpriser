@@ -10,7 +10,8 @@ import { hentHistorik, hentOgGem, hentSlots } from "./pris/lager";
 import { OMRAADER, type Omraade } from "./pris/typer";
 import { lavPrognose, maaVisePrognose, vurderBilligsteDag } from "./prognose/prognose";
 import { dagensGraenser, danskDato, foerUdsendelsesvindue, iUdsendelsesvindue, laegDage } from "./tid";
-import { afmeldToken, politikFraToken, skiftToken } from "./tokens";
+import { afmeldToken, skiftToken, sletToken } from "./tokens";
+import { FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET } from "./samtykke";
 
 export type OmraadeStatus = "sprunget_over" | "faerdig" | "afventer_priser" | "droppet" | "tid_opbrugt" | "allerede_faerdig";
 
@@ -205,13 +206,15 @@ export async function udsend(
       }
       const kandidater = await db.query<Modtager>(
         `select t.id, t.email, t.postnummer,
-                exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'politik' and s.status = 'aktiv') as har_politik
+                -- Politisk information er dækket af elprissamtykket fra version 2, og før det af et separat samtykke.
+                (exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'elpris' and s.status = 'aktiv' and s.version >= $4)
+                 or exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'politik' and s.status = 'aktiv')) as har_politik
          from tilmeldte t
-         where t.status = 'aktiv' and t.omraade = $3 and ($2::boolean = false or t.test = true)
+         where t.status = 'aktiv' and t.elpris_aktiv and t.omraade = $3 and ($2::boolean = false or t.test = true)
            and exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'elpris' and s.status = 'aktiv')
            and not exists (select 1 from udsendelseslog l where l.tilmeldt_id = t.id and l.dato = $1)
          order by t.id limit ${PORTION}`,
-        [dato, kunTest, omr],
+        [dato, kunTest, omr, FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET],
       );
       if (kandidater.length === 0) break;
 
@@ -245,7 +248,7 @@ export async function udsend(
             stop: `${appUrl}/afmeld?token=${t(afmeldToken(m.id))}`,
             stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,
             skiftPostnummer: `${appUrl}/skift-postnummer?token=${t(skiftToken(m.id))}`,
-            politikFra: m.har_politik ? `${appUrl}/politik-fra?token=${t(politikFraToken(m.id))}` : undefined,
+            slet: `${appUrl}/slet?token=${t(sletToken(m.id))}`,
           },
         });
         return { ...mail, to: m.email };

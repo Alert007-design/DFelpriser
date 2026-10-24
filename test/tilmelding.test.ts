@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { afmeld, bekraeft, rydOp, skiftPostnummer, slet, tilmeld, traekPolitikTilbage } from "@/lib/tilmelding";
+import { afmeld, bekraeft, rydOp, skiftPostnummer, slet, tilmeld } from "@/lib/tilmelding";
 import { tilmeldingSkema, type Tilmelding } from "@/lib/validering";
-import { ELPRIS_SAMTYKKE, POLITIK_SAMTYKKE } from "@/lib/samtykke";
+import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
 import { tekstHash } from "@/lib/samtykke-bevis";
-import { afmeldToken, politikFraToken, skiftToken, sletToken, laesAfmeldToken } from "@/lib/tokens";
+import { afmeldToken, skiftToken, sletToken, laesAfmeldToken } from "@/lib/tokens";
 import { falskAfsender, indsaetTilmeldt, nyDb } from "./hjaelp";
 
 const ctx = { ip: "1.2.3.4", appUrl: "https://eksempel.test", nu: new Date("2026-10-23T10:00:00Z") };
@@ -18,24 +18,26 @@ function input(o: Partial<Record<string, unknown>> = {}): Tilmelding {
     ...o,
   });
 }
-const medPolitik = {
-  politik_samtykke: true,
-  politik_samtykke_version: POLITIK_SAMTYKKE.version,
-  politik_samtykke_hash: tekstHash(POLITIK_SAMTYKKE.tekst),
-};
-
 function tokenFraMail(html: string): string {
   const m = /bekraeft\?token=([^"]+)"/.exec(html);
   return decodeURIComponent(m![1]);
 }
 
 describe("samtykketekster", () => {
-  it("konstanterne i koden er ordret ens med dem i databasen", async () => {
+  it("konstanten i koden er ordret ens med den gældende tekst i databasen", async () => {
     const db = await nyDb();
-    for (const s of [ELPRIS_SAMTYKKE, POLITIK_SAMTYKKE]) {
-      const [r] = await db.query<{ tekst: string }>(`select tekst from samtykketekster where type = $1 and version = $2`, [s.type, s.version]);
-      expect(r.tekst).toBe(s.tekst);
-    }
+    const [r] = await db.query<{ tekst: string; version: number }>(`select tekst, version from samtykketekster where type = 'elpris' order by version desc limit 1`);
+    expect(r.version).toBe(ELPRIS_SAMTYKKE.version);
+    expect(r.tekst).toBe(ELPRIS_SAMTYKKE.tekst);
+  });
+  it("version 2 dækker både elpriser og politisk information, og version 1 er bevaret", async () => {
+    const db = await nyDb();
+    expect(ELPRIS_SAMTYKKE.version).toBe(2);
+    expect(ELPRIS_SAMTYKKE.tekst).toMatch(/politik og politiske udspil/);
+    expect(ELPRIS_SAMTYKKE.tekst).toMatch(/disse formål/);
+    const v1 = await db.query(`select 1 from samtykketekster where type = 'elpris' and version = 1`);
+    expect(v1).toHaveLength(1);
+    expect(await db.query(`select 1 from samtykketekster where type = 'politik'`)).toHaveLength(1);
   });
   it("kan ikke ændres eller slettes", async () => {
     const db = await nyDb();
@@ -93,13 +95,14 @@ describe("tilmelding med double opt-in", () => {
     expect(await db.query(`select 1 from tilmeldte`)).toHaveLength(0);
   });
 
-  it("politisk samtykke er separat og frivilligt – aldrig forhåndsafkrydset", async () => {
+  it("ét samtykke: version 2 gemmes, intet separat politisk samtykke oprettes, og feltet er ikke forhåndsafkrydset", async () => {
     const af = falskAfsender();
     await tilmeld(db, af, input(), ctx);
+    const s = await db.query<{ type: string; version: number }>(`select type, version from samtykker`);
+    expect(s).toEqual([{ type: "elpris", version: 2 }]);
+    // gamle formularer, der sender det tidligere politiske felt, giver stadig kun ét samtykke
+    await tilmeld(db, af, input({ email: "b@e.dk", politik_samtykke: true, politik_samtykke_version: 1 }), ctx);
     expect((await db.query(`select 1 from samtykker where type = 'politik'`)).length).toBe(0);
-    await tilmeld(db, af, input({ email: "b@e.dk", ...medPolitik }), ctx);
-    expect((await db.query(`select 1 from samtykker where type = 'politik'`)).length).toBe(1);
-    // kun elpris-samtykket afkrydset uden politik giver kun ét samtykke
     expect(tilmeldingSkema.safeParse({ ...input(), samtykke: false }).success).toBe(false);
     expect(tilmeldingSkema.safeParse({ email: "a@b.dk", postnummer: "2100" }).success).toBe(false);
   });
@@ -108,7 +111,8 @@ describe("tilmelding med double opt-in", () => {
     const af = falskAfsender();
     expect((await tilmeld(db, af, input({ samtykke_hash: tekstHash("en anden tekst") }), ctx)).status).toBe("samtykke_foraeldet");
     expect((await tilmeld(db, af, input({ samtykke_version: 99 }), ctx)).status).toBe("samtykke_foraeldet");
-    expect((await tilmeld(db, af, input({ ...medPolitik, politik_samtykke_hash: tekstHash("x") }), ctx)).status).toBe("samtykke_foraeldet");
+    // version 1 er ikke længere den gældende tekst
+    expect((await tilmeld(db, af, input({ samtykke_version: 1 }), ctx)).status).toBe("samtykke_foraeldet");
     expect(await db.query(`select 1 from tilmeldte`)).toHaveLength(0);
     expect(af.sendte).toHaveLength(0);
   });
@@ -159,23 +163,25 @@ describe("tilmelding med double opt-in", () => {
   });
 });
 
-describe("afmelding, sletning, skift af postnummer og politisk samtykke", () => {
+describe("stop af den daglige mail, sletning og skift af postnummer", () => {
   let db: Awaited<ReturnType<typeof nyDb>>;
   beforeEach(async () => {
     db = await nyDb();
   });
 
-  it("afmelding trækker samtykkerne tilbage med tidspunkt og kan gentages", async () => {
-    const id = await indsaetTilmeldt(db, { email: "a@e.dk", politik: true });
+  it("afmelding stopper kun den daglige mail: person og samtykke bevares, og det kan gentages", async () => {
+    const id = await indsaetTilmeldt(db, { email: "a@e.dk" });
     expect(await afmeld(db, "forkert.token", ctx.nu)).toBe("ugyldig");
     expect(await afmeld(db, afmeldToken(id), ctx.nu)).toBe("ok");
     expect(await afmeld(db, afmeldToken(id), new Date("2027-01-01"))).toBe("ok");
-    const [t] = await db.query<{ status: string; afmeldt_tidspunkt: Date }>(`select status, afmeldt_tidspunkt from tilmeldte`);
-    expect(t.status).toBe("afmeldt");
-    expect(new Date(t.afmeldt_tidspunkt).toISOString()).toBe(ctx.nu.toISOString()); // første tidspunkt bevares
-    const s = await db.query<{ status: string; tilbagekaldt: Date }>(`select status, tilbagekaldt from samtykker`);
-    expect(s).toHaveLength(2);
-    expect(s.every((x) => x.status === "tilbagekaldt" && x.tilbagekaldt)).toBe(true);
+    const [t] = await db.query<{ status: string; elpris_aktiv: boolean; elpris_stoppet: Date; afmeldt_tidspunkt: Date | null }>(
+      `select status, elpris_aktiv, elpris_stoppet, afmeldt_tidspunkt from tilmeldte`,
+    );
+    expect(t.status).toBe("aktiv");
+    expect(t.elpris_aktiv).toBe(false);
+    expect(new Date(t.elpris_stoppet).toISOString()).toBe(ctx.nu.toISOString()); // første tidspunkt bevares
+    const s = await db.query<{ status: string; tilbagekaldt: Date | null }>(`select status, tilbagekaldt from samtykker`);
+    expect(s).toEqual([{ status: "aktiv", tilbagekaldt: null }]);
   });
 
   it("tokens kan kun bruges til deres eget formål", async () => {
@@ -184,7 +190,6 @@ describe("afmelding, sletning, skift af postnummer og politisk samtykke", () => 
     expect(await afmeld(db, sletToken(id), ctx.nu)).toBe("ugyldig");
     expect(await slet(db, afmeldToken(id))).toBe("ugyldig");
     expect(await skiftPostnummer(db, afmeldToken(id), "8000")).toBe("ugyldig");
-    expect(await traekPolitikTilbage(db, afmeldToken(id), ctx.nu)).toBe("ugyldig");
   });
 
   it("sletning fjerner alt om personen", async () => {
@@ -193,18 +198,6 @@ describe("afmelding, sletning, skift af postnummer og politisk samtykke", () => 
     expect(await slet(db, sletToken(id))).toBe("ok");
     expect(await slet(db, sletToken(id))).toBe("ok");
     for (const tabel of ["tilmeldte", "samtykker", "udsendelseslog"]) expect(await db.query(`select 1 from ${tabel}`)).toHaveLength(0);
-  });
-
-  it("politisk samtykke kan trækkes tilbage alene, og elpriserne fortsætter", async () => {
-    const id = await indsaetTilmeldt(db, { email: "a@e.dk", politik: true });
-    expect(await traekPolitikTilbage(db, politikFraToken(id), ctx.nu)).toBe("ok");
-    const s = await db.query<{ type: string; status: string }>(`select type, status from samtykker order by type`);
-    expect(s).toEqual([
-      { type: "elpris", status: "aktiv" },
-      { type: "politik", status: "tilbagekaldt" },
-    ]);
-    const [t] = await db.query<{ status: string }>(`select status from tilmeldte`);
-    expect(t.status).toBe("aktiv");
   });
 
   it("skift af postnummer opdaterer elprisområdet", async () => {
@@ -216,22 +209,26 @@ describe("afmelding, sletning, skift af postnummer og politisk samtykke", () => 
     expect(await skiftPostnummer(db, "x.y", "8000")).toBe("ugyldig");
   });
 
-  it("en afmeldt kan tilmelde sig igen, men kun via ny bekræftelse", async () => {
+  it("den, der har stoppet mailen, kan tilmelde sig igen, men kun via ny bekræftelse", async () => {
     process.env.JURA_GODKENDT = "ja";
     const af = falskAfsender();
     const id = await indsaetTilmeldt(db, { email: "anna@eksempel.dk" });
     await afmeld(db, afmeldToken(id), ctx.nu);
     await tilmeld(db, af, input(), ctx);
-    const [t] = await db.query<{ status: string }>(`select status from tilmeldte`);
-    expect(t.status).toBe("afventer");
+    const [t] = await db.query<{ status: string; elpris_aktiv: boolean }>(`select status, elpris_aktiv from tilmeldte`);
+    expect(t).toEqual({ status: "afventer", elpris_aktiv: true });
+    expect(af.sendte).toHaveLength(1);
     expect(await bekraeft(db, tokenFraMail(af.sendte[0].html), ctx.nu)).toBe(true);
+    const [s] = await db.query<{ version: number; status: string }>(`select version, status from samtykker`);
+    expect(s).toEqual({ version: 2, status: "aktiv" });
   });
 
-  it("afmeldte slettes efter opbevaringsfristen, ikke før", async () => {
+  it("oprydningen sletter aldrig personer, der har stoppet mailen", async () => {
     const id = await indsaetTilmeldt(db, { email: "a@e.dk" });
     await afmeld(db, afmeldToken(id), new Date("2026-01-01T00:00:00Z"));
-    expect((await rydOp(db, new Date("2026-12-01T00:00:00Z"))).afmeldteSlettet).toBe(0);
-    expect((await rydOp(db, new Date("2027-01-02T00:00:00Z"))).afmeldteSlettet).toBe(1);
+    await rydOp(db, new Date("2030-01-01T00:00:00Z"));
+    expect(await db.query(`select 1 from tilmeldte`)).toHaveLength(1);
+    expect(await db.query(`select 1 from samtykker`)).toHaveLength(1);
   });
 
   it("DF-priser og DF-Elpriser deler intet: ingen kode læser DF-priser", async () => {

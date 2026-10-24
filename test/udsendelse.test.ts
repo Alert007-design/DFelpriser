@@ -172,39 +172,54 @@ describe("udsendelse kl. 16", () => {
     process.env.JURA_GODKENDT = "ja";
   });
 
-  it("sender ikke til ubekræftede og afmeldte", async () => {
+  it("sender ikke til ubekræftede, afmeldte eller dem, der har stoppet den daglige mail", async () => {
     await indsaetTestpriser(db, "2026-10-23", "2026-10-24");
     await db.query(`update spotpriser set kilde = 'energidataservice:DayAheadPrices'`);
     await indsaetTilmeldt(db, { email: "afventer@eksempel.dk", status: "afventer" });
     await indsaetTilmeldt(db, { email: "afmeldt@eksempel.dk", status: "afmeldt" });
+    await indsaetTilmeldt(db, { email: "stoppet@eksempel.dk", elprisAktiv: false });
     await indsaetTilmeldt(db, { email: "aktiv@eksempel.dk" });
     const af = falskAfsender();
     await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
     expect(af.sendte.map((m) => m.to)).toEqual(["aktiv@eksempel.dk"]);
   });
 
-  it("politisk tekst kun til dem, der har givet det politiske samtykke", async () => {
+  it("politisk tekst til alle, hvis samtykke dækker den: version 2, eller version 1 med politisk samtykke", async () => {
     await indsaetTestpriser(db, "2026-10-23", "2026-10-24");
     await db.query(`update spotpriser set kilde = 'energidataservice:DayAheadPrices'`);
     await db.query(`update indstillinger set vaerdi = 'TESTBUDSKAB-FRA-DF' where noegle = 'df_budskab_tekst'`);
-    await indsaetTilmeldt(db, { email: "med@eksempel.dk", politik: true });
-    await indsaetTilmeldt(db, { email: "uden@eksempel.dk", politik: false });
+    await indsaetTilmeldt(db, { email: "v2@eksempel.dk" });
+    await indsaetTilmeldt(db, { email: "v1med@eksempel.dk", version: 1, politik: true });
+    await indsaetTilmeldt(db, { email: "v1uden@eksempel.dk", version: 1, politik: false });
     const af = falskAfsender();
     await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
-    const med = af.sendte.find((m) => m.to === "med@eksempel.dk")!;
-    const uden = af.sendte.find((m) => m.to === "uden@eksempel.dk")!;
-    expect(med.html).toContain("TESTBUDSKAB-FRA-DF");
-    expect(med.html).toContain("politik-fra");
-    expect(uden.html).not.toContain("TESTBUDSKAB-FRA-DF");
-    expect(uden.html).not.toContain("politik-fra");
-    expect(uden.text).not.toContain("TESTBUDSKAB-FRA-DF");
+    const find = (e: string) => af.sendte.find((m) => m.to === e)!;
+    expect(find("v2@eksempel.dk").html).toContain("TESTBUDSKAB-FRA-DF");
+    expect(find("v1med@eksempel.dk").html).toContain("TESTBUDSKAB-FRA-DF");
+    expect(find("v1uden@eksempel.dk").html).not.toContain("TESTBUDSKAB-FRA-DF");
+    expect(find("v1uden@eksempel.dk").text).not.toContain("TESTBUDSKAB-FRA-DF");
+    for (const m of af.sendte) expect(m.html).not.toContain("politik-fra");
   });
 
-  it("en trukket politisk tilladelse stopper den politiske tekst med det samme", async () => {
+  it("mailen har en dominerende stop-knap, et mindre slet-link og one-click-afmelding, der kun stopper mailen", async () => {
+    await indsaetTestpriser(db, "2026-10-23", "2026-10-24");
+    await db.query(`update spotpriser set kilde = 'energidataservice:DayAheadPrices'`);
+    await indsaetTilmeldt(db, { email: "a@eksempel.dk" });
+    const af = falskAfsender();
+    await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
+    const m = af.sendte[0];
+    expect(m.html).toContain("STOP modtagelse af dette nyhedsbrev");
+    expect(m.html).toMatch(/\/slet\?token=/);
+    expect(m.text).toMatch(/\/slet\?token=/);
+    expect(m.headers?.["List-Unsubscribe"]).toMatch(/\/api\/afmeld\?token=/);
+    expect(m.headers?.["List-Unsubscribe"]).not.toMatch(/slet/);
+  });
+
+  it("en trukket politisk tilladelse fra version 1 stopper den politiske tekst med det samme", async () => {
     await indsaetTestpriser(db, "2026-10-23", "2026-10-24");
     await db.query(`update spotpriser set kilde = 'energidataservice:DayAheadPrices'`);
     await db.query(`update indstillinger set vaerdi = 'TESTBUDSKAB-FRA-DF' where noegle = 'df_budskab_tekst'`);
-    const id = await indsaetTilmeldt(db, { email: "med@eksempel.dk", politik: true });
+    const id = await indsaetTilmeldt(db, { email: "med@eksempel.dk", version: 1, politik: true });
     await db.query(`update samtykker set status = 'tilbagekaldt', tilbagekaldt = now() where tilmeldt_id = $1 and type = 'politik'`, [id]);
     const af = falskAfsender();
     await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });

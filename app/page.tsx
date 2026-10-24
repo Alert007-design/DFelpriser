@@ -5,7 +5,7 @@ import { omraadeForPostnummer, omraadeNavn } from "@/lib/omraade";
 import { besparelseKr } from "@/lib/pris/dag";
 import { kroner, oere, periodeTekst } from "@/lib/pris/format";
 import { OMRAADER, type Omraade } from "@/lib/pris/typer";
-import { ELPRIS_SAMTYKKE, POLITIK_SAMTYKKE } from "@/lib/samtykke";
+import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
 import { tekstHash } from "@/lib/samtykke-bevis";
 import { laesbarDato, stortFoerst } from "@/lib/tid";
 import { Prisgraf } from "./graf";
@@ -52,10 +52,7 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
   const { idag, imorgen } = await offentligeDage(valgt, nu);
   const kendteDatoer = new Set([idag?.dato, imorgen?.dato]);
   const prognoser = (await gemtePrognoser(valgt, nu)).filter((p) => !kendteDatoer.has(p.dato));
-  const samtykker = {
-    elpris: { ...ELPRIS_SAMTYKKE, hash: tekstHash(ELPRIS_SAMTYKKE.tekst) },
-    politik: { ...POLITIK_SAMTYKKE, hash: tekstHash(POLITIK_SAMTYKKE.tekst) },
-  };
+  const samtykke = { ...ELPRIS_SAMTYKKE, hash: tekstHash(ELPRIS_SAMTYKKE.tekst) };
 
   return (
     <main>
@@ -123,7 +120,7 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
         Kilde: {KILDE_TEKST}. Se <a href="/om-priserne">hvordan priserne og prognosen beregnes</a>.
       </p>
 
-      <Tilmeldingsformular samtykker={samtykker} aaben={juraGodkendt()} />
+      <Tilmeldingsformular samtykke={samtykke} aaben={juraGodkendt()} />
     </main>
   );
 }

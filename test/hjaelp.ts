@@ -55,21 +55,24 @@ export function falskAfsender(): FalskAfsender {
 
 export async function indsaetTilmeldt(
   db: Db,
-  o: { email: string; omraade?: "DK1" | "DK2"; postnummer?: string; status?: string; test?: boolean; politik?: boolean },
+  o: { email: string; omraade?: "DK1" | "DK2"; postnummer?: string; status?: string; test?: boolean; politik?: boolean; version?: 1 | 2; elprisAktiv?: boolean },
 ): Promise<string> {
   const omraade = o.omraade ?? "DK2";
   const postnummer = o.postnummer ?? (omraade === "DK2" ? "2100" : "8000");
   const [{ id }] = await db.query<{ id: string }>(
-    `insert into tilmeldte (email, postnummer, omraade, status, test, bekraeftet_tidspunkt, bekraeft_token_hash)
-     values ($1,$2,$3,$4,$5, now(), $6) returning id`,
-    [o.email, postnummer, omraade, o.status ?? "aktiv", o.test ?? false, hashToken(o.email)],
+    `insert into tilmeldte (email, postnummer, omraade, status, test, bekraeftet_tidspunkt, bekraeft_token_hash, elpris_aktiv, elpris_stoppet)
+     values ($1,$2,$3,$4,$5, now(), $6, $7, case when $7 then null else now() end) returning id`,
+    [o.email, postnummer, omraade, o.status ?? "aktiv", o.test ?? false, hashToken(o.email), o.elprisAktiv ?? true],
   );
+  // Standard er den gældende tekst (version 2). version: 1 efterligner en tilmelding fra før omlægningen.
+  const version = o.version ?? 2;
   const aktiv = (o.status ?? "aktiv") === "aktiv";
   for (const type of ["elpris", ...(o.politik ? ["politik"] : [])]) {
     await db.query(
       `insert into samtykker (tilmeldt_id, type, version, ordlyd, givet, bekraeftet, status)
-       select $1, type, version, tekst, now(), ${aktiv ? "now()" : "null"}, $3 from samtykketekster where type = $2`,
-      [id, type, aktiv ? "aktiv" : "afventer"],
+       select $1, type, version, tekst, now(), ${aktiv ? "now()" : "null"}, $3 from samtykketekster
+       where type = $2 and version = case when $2 = 'elpris' then $4::int else 1 end`,
+      [id, type, aktiv ? "aktiv" : "afventer", version],
     );
   }
   return id;

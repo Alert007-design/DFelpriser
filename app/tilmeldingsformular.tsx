@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { omraadeForPostnummer, omraadeNavn } from "@/lib/omraade";
 import { delOmkringLink, PRIVATLIVSPOLITIK_STI, type Samtykketekst } from "@/lib/samtykke";
 
-type Felt = "email" | "postnummer" | "samtykke" | "politik_samtykke";
+type Felt = "email" | "postnummer" | "samtykke";
 export type VistSamtykke = Samtykketekst & { hash: string };
 
 function Feltfejl({ id, tekst }: { id: string; tekst?: string }) {
@@ -15,19 +15,13 @@ function Feltfejl({ id, tekst }: { id: string; tekst?: string }) {
   ) : null;
 }
 
-export function Tilmeldingsformular({
-  samtykker,
-  aaben,
-}: {
-  samtykker: { elpris: VistSamtykke; politik: VistSamtykke };
-  aaben: boolean;
-}) {
+export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykke; aaben: boolean }) {
   const [sender, setSender] = useState(false);
   const [postnummer, setPostnummer] = useState("");
   const [fejl, setFejl] = useState<Partial<Record<Felt, string>>>({});
   const [besked, setBesked] = useState<{ tekst: string; ok: boolean } | null>(null);
   const omraade = omraadeForPostnummer(postnummer);
-  const elpris = delOmkringLink(samtykker.elpris.tekst);
+  const elpris = delOmkringLink(samtykke.tekst);
 
   async function indsend(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,7 +30,6 @@ export function Tilmeldingsformular({
     setFejl({});
     setBesked(null);
     try {
-      const politik = data.get("politik_samtykke") === "ja";
       const svar = await fetch("/api/tilmeld", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,10 +37,8 @@ export function Tilmeldingsformular({
           email: data.get("email"),
           postnummer: data.get("postnummer"),
           samtykke: data.get("samtykke") === "ja",
-          samtykke_version: samtykker.elpris.version,
-          samtykke_hash: samtykker.elpris.hash,
-          politik_samtykke: politik,
-          ...(politik ? { politik_samtykke_version: samtykker.politik.version, politik_samtykke_hash: samtykker.politik.hash } : {}),
+          samtykke_version: samtykke.version,
+          samtykke_hash: samtykke.hash,
           hjemmeside: data.get("hjemmeside"),
         }),
       });
@@ -84,8 +75,8 @@ export function Tilmeldingsformular({
         </p>
       )}
       <form method="post" action="/api/tilmeld" onSubmit={indsend}>
-        <input type="hidden" name="samtykke_version" value={samtykker.elpris.version} />
-        <input type="hidden" name="samtykke_hash" value={samtykker.elpris.hash} />
+        <input type="hidden" name="samtykke_version" value={samtykke.version} />
+        <input type="hidden" name="samtykke_hash" value={samtykke.hash} />
         <div className="felter">
           <div className="felt">
             <label htmlFor="email">E-mail</label>
@@ -121,10 +112,10 @@ export function Tilmeldingsformular({
           <input id="hjemmeside" name="hjemmeside" type="text" tabIndex={-1} autoComplete="off" />
         </div>
 
-        {/* Ingen forhåndsafkrydsede felter. */}
+        {/* Ét samtykke, ikke forhåndsafkrydset. Det dækker både elpriserne og politisk information. */}
         <div className="samtykke">
           <input id="samtykke" name="samtykke" type="checkbox" value="ja" required defaultChecked={false} />
-          <label htmlFor="samtykke" data-samtykke-version={samtykker.elpris.version}>
+          <label htmlFor="samtykke" data-samtykke-version={samtykke.version}>
             {elpris.foer}
             <a href={PRIVATLIVSPOLITIK_STI} target="_blank" rel="noopener">
               {elpris.link}
@@ -133,15 +124,6 @@ export function Tilmeldingsformular({
           </label>
         </div>
         <Feltfejl id="samtykke-fejl" tekst={fejl.samtykke} />
-
-        <div className="samtykke">
-          <input id="politik_samtykke" name="politik_samtykke" type="checkbox" value="ja" defaultChecked={false} />
-          <label htmlFor="politik_samtykke" data-samtykke-version={samtykker.politik.version}>
-            <strong>Frivilligt: </strong>
-            {samtykker.politik.tekst}
-          </label>
-        </div>
-        <Feltfejl id="politik_samtykke-fejl" tekst={fejl.politik_samtykke} />
 
         <button className="knap" type="submit" disabled={sender}>
           {sender ? "Sender …" : "Tilmeld mig"}

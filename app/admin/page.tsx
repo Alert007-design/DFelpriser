@@ -39,11 +39,12 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
         </form>
         <h2>Abonnenter</h2>
         <div className="talraekke">
-          <div className="kort"><div className="lille">Aktive</div><div className="stor">{a.aktive}</div></div>
-          <div className="kort"><div className="lille">DK1 / DK2</div><div className="stor">{a.pr_omraade.DK1} / {a.pr_omraade.DK2}</div></div>
-          <div className="kort"><div className="lille">Med politisk samtykke</div><div className="stor">{a.med_politisk_samtykke}</div></div>
+          <div className="kort"><div className="lille">Aktive samtykker</div><div className="stor">{a.aktive}</div></div>
+          <div className="kort"><div className="lille">Får den daglige mail</div><div className="stor">{a.faar_daglig_mail}</div></div>
+          <div className="kort"><div className="lille">DK1 / DK2 (daglig mail)</div><div className="stor">{a.pr_omraade.DK1} / {a.pr_omraade.DK2}</div></div>
+          <div className="kort"><div className="lille">Har stoppet den daglige mail</div><div className="stor">{a.stoppet}</div></div>
+          <div className="kort"><div className="lille">Samtykke dækker politisk information</div><div className="stor">{a.med_politisk_samtykke}</div></div>
           <div className="kort"><div className="lille">Afventer bekræftelse</div><div className="stor">{a.afventer}</div></div>
-          <div className="kort"><div className="lille">Afmeldte (gemt som dokumentation)</div><div className="stor">{a.afmeldte}</div></div>
           <div className="kort"><div className="lille">Testmodtagere</div><div className="stor">{a.test}</div></div>
         </div>
       </div>

@@ -6,7 +6,7 @@
 |---|---|---|
 | `/api/cron/hent-priser` | hvert 10. min kl. 02 og 10–15 | Henter de seneste 7 døgn, i dag og i morgen. Idempotent. Logger i `hentelog` |
 | `/api/cron/udsend` | hvert 5. min kl. 14–18 | Gør kun noget 16.00–18.59 dansk tid, sommer som vinter. Se nedenfor |
-| `/api/cron/ryd-op` | hver time | Sletter ubekræftede (72 t), gamle ratebegrænsninger, afmeldte efter fristen og logposter over 180 dage |
+| `/api/cron/ryd-op` | hver time | Sletter ubekræftede (72 t), gamle ratebegrænsninger og logposter over 180 dage. Personer, der har stoppet mailen, slettes aldrig automatisk |
 
 Cron kører altid i UTC. Handleren afgør selv dansk tid, så 16.00 er rigtigt både sommer og vinter.
 
@@ -32,7 +32,7 @@ Cron kører altid i UTC. Handleren afgør selv dansk tid, så 16.00 er rigtigt b
 
 ## Admin: `/admin`
 
-Adgangskode (`ADMIN_PASSWORD`). Viser abonnenttal (aktive, pr. område, politisk samtykke, afventende, afmeldte, test), om morgendagens priser er fuldstændige, om prognosen må vises, udsendelser og status, hentninger, driftslog og prognoser mod faktiske priser.
+Adgangskode (`ADMIN_PASSWORD`). Viser abonnenttal (aktive samtykker, hvor mange der får den daglige mail, pr. område, hvor mange der har stoppet mailen, hvor manges samtykke dækker politisk information, afventende, test), om morgendagens priser er fuldstændige, om prognosen må vises, udsendelser og status, hentninger, driftslog og prognoser mod faktiske priser.
 
 ## Opsætning (det du selv skal gøre)
 

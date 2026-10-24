@@ -7,6 +7,7 @@ import { OMRAADER, type Omraade } from "./pris/typer";
 import { maaVisePrognose } from "./prognose/prognose";
 import { middel } from "./prognose/model";
 import { danskDato, laegDage } from "./tid";
+import { FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET } from "./samtykke";
 
 const COOKIE_SVAR = "admin";
 
@@ -33,7 +34,7 @@ export const ADMIN_COOKIE = "df_elpriser_admin";
 
 export interface Oversigt {
   nu: string;
-  abonnenter: { aktive: number; afventer: number; afmeldte: number; test: number; pr_omraade: Record<Omraade, number>; med_politisk_samtykke: number };
+  abonnenter: { aktive: number; faar_daglig_mail: number; stoppet: number; afventer: number; test: number; pr_omraade: Record<Omraade, number>; med_politisk_samtykke: number };
   priser: { omraade: Omraade; dato: string; fuld: boolean; aarsag?: string; dage_i_lager: number }[];
   udsendelser: { dato: string; omraade: string; status: string; sendt: number; fejlet: number; prognose: boolean; note: string | null }[];
   hentelog: { tidspunkt: string; kilde: string; omraade: string | null; status: string; antal: number; besked: string | null }[];
@@ -71,14 +72,17 @@ export async function adminOversigt(db: Db, nu: Date): Promise<Oversigt> {
   const imorgen = laegDage(dato, 1);
   const [t] = await db.query<Record<string, number>>(
     `select count(*) filter (where status = 'aktiv')::int as aktive,
+            count(*) filter (where status = 'aktiv' and elpris_aktiv)::int as daglig,
+            count(*) filter (where status = 'aktiv' and not elpris_aktiv)::int as stoppet,
             count(*) filter (where status = 'afventer')::int as afventer,
-            count(*) filter (where status = 'afmeldt')::int as afmeldte,
             count(*) filter (where test)::int as test,
-            count(*) filter (where status = 'aktiv' and omraade = 'DK1')::int as dk1,
-            count(*) filter (where status = 'aktiv' and omraade = 'DK2')::int as dk2,
-            (select count(*)::int from samtykker s join tilmeldte x on x.id = s.tilmeldt_id
-              where s.type = 'politik' and s.status = 'aktiv' and x.status = 'aktiv') as politik
+            count(*) filter (where status = 'aktiv' and elpris_aktiv and omraade = 'DK1')::int as dk1,
+            count(*) filter (where status = 'aktiv' and elpris_aktiv and omraade = 'DK2')::int as dk2,
+            (select count(distinct x.id)::int from samtykker s join tilmeldte x on x.id = s.tilmeldt_id
+              where x.status = 'aktiv' and s.status = 'aktiv'
+                and ((s.type = 'elpris' and s.version >= $1) or s.type = 'politik')) as politik
      from tilmeldte`,
+    [FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET],
   );
   const priser: Oversigt["priser"] = [];
   const prognoseStatus: Oversigt["prognoseStatus"] = [];
@@ -95,8 +99,9 @@ export async function adminOversigt(db: Db, nu: Date): Promise<Oversigt> {
     nu: nu.toISOString(),
     abonnenter: {
       aktive: t.aktive,
+      faar_daglig_mail: t.daglig,
+      stoppet: t.stoppet,
       afventer: t.afventer,
-      afmeldte: t.afmeldte,
       test: t.test,
       pr_omraade: { DK1: t.dk1, DK2: t.dk2 },
       med_politisk_samtykke: t.politik,

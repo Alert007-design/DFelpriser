@@ -1,14 +1,16 @@
 /**
- * De samtykketekster, formularen viser. To adskilte samtykker, begge uden forhåndsafkrydsning:
- *  - "elpris": det daglige elprisnyhedsbrev (påkrævet for at tilmelde sig),
- *  - "politik": frivillig politisk information i samme e-mail.
- * Mails indeholder kun politisk information til dem, der har givet det andet samtykke.
+ * Den samtykketekst, formularen viser. Ét obligatorisk samtykke uden forhåndsafkrydsning, der dækker både
+ * den daglige elprismail og politisk information fra Dansk Folkeparti (besluttet af ejeren 24. oktober 2026,
+ * samme model som partiets brændstofpris-tjeneste). Man kan ikke tilmelde sig det ene uden det andet.
  *
- * Teksterne er UDKAST til juridisk godkendelse (se docs/GDPR.md). Hver tekst har et fast versionsnummer og
- * ligger ordret i tabellen `samtykketekster`, hvor den ikke kan ændres. Formularen sender versionsnummer
- * og SHA-256 af den viste tekst, og API'et afviser tilmeldingen, hvis de ikke passer.
+ * Version 1 og det tidligere separate politiske samtykke ("politik") findes stadig i databasen som
+ * dokumentation for dem, der tilmeldte sig før omlægningen. Nye tilmeldinger får kun "elpris" version 2.
  *
- * Ændres en tekst: tilføj en ny version i en ny migration. Ret aldrig en eksisterende version.
+ * Hver tekst har et fast versionsnummer og ligger ordret i tabellen `samtykketekster`, hvor den ikke kan
+ * ændres. Formularen sender versionsnummer og SHA-256 af den viste tekst, og API'et afviser tilmeldingen,
+ * hvis de ikke passer.
+ *
+ * Ændres teksten: tilføj en ny version i en ny migration. Ret aldrig en eksisterende version.
  */
 
 export const PRIVATLIVSPOLITIK_STI = "/privatlivspolitik";
@@ -26,17 +28,13 @@ export interface Samtykketekst {
 
 export const ELPRIS_SAMTYKKE: Samtykketekst = {
   type: "elpris",
-  version: 1,
+  version: 2,
   tekst:
-    "Ja tak. Jeg vil hver dag kl. 16 modtage en e-mail fra Dansk Folkeparti med morgendagens elpriser og en prognose for de to følgende dage i mit elprisområde. Jeg giver udtrykkeligt samtykke til, at Dansk Folkeparti behandler min e-mailadresse og mit postnummer til dette formål. Min tilmelding kan være en oplysning om politisk interesse. Jeg kan til enhver tid trække mit samtykke tilbage via afmeldingslinket i e-mailen. Læs privatlivspolitikken.",
+    "Ja tak. Jeg vil hver dag kl. 16 modtage en e-mail fra Dansk Folkeparti med morgendagens elpriser og en prognose for de to følgende dage i mit elprisområde samt information om Dansk Folkepartis politik og politiske udspil. Jeg giver udtrykkeligt samtykke til, at Dansk Folkeparti behandler min e-mailadresse og mit postnummer til disse formål. Min tilmelding kan være en oplysning om politisk interesse. Jeg kan til enhver tid trække mit samtykke tilbage via afmeldingslinket i e-mailen. Læs privatlivspolitikken.",
 };
 
-export const POLITIK_SAMTYKKE: Samtykketekst = {
-  type: "politik",
-  version: 1,
-  tekst:
-    "Ja tak. Jeg vil også gerne have information om Dansk Folkepartis politik og politiske udspil i den daglige e-mail. Jeg giver udtrykkeligt samtykke til, at Dansk Folkeparti behandler min e-mailadresse og mit postnummer til dette formål. Min tilmelding kan være en oplysning om politisk interesse. Jeg kan til enhver tid trække dette samtykke tilbage, uden at det afmelder elpriserne.",
-};
+/** Første version af elprissamtykket, hvor politisk information krævede et separat samtykke. */
+export const FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET = 2;
 
 /** Deler e-mail-samtykket i den almindelige tekst og linkteksten til sidst. */
 export function delOmkringLink(tekst: string): { foer: string; link: string; efter: string } {

@@ -49,12 +49,6 @@ export function erOffentlig(): boolean {
   return env("OFFENTLIG").toLowerCase() === "ja";
 }
 
-/** Hvor længe oplysninger om afmeldte gemmes som dokumentation, før de slettes. Skal fastlægges af jurist. */
-export function afmeldtOpbevaringDage(): number {
-  const n = Number(env("AFMELDT_OPBEVARING_DAGE"));
-  return Number.isInteger(n) && n > 0 ? n : 365;
-}
-
 export function valgfri(navn: string): string | undefined {
   return env(navn) || undefined;
 }

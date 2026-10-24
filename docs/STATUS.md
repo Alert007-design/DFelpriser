@@ -1,3 +1,21 @@
+# Status 24. oktober 2026
+
+## Siden 23. oktober
+
+- **Samtykke og afmelding følger nu DF-priser-modellen** (besluttet af ejeren 24/10): ét obligatorisk samtykke (version 2), der dækker både elpriser og politisk information. »STOP« i mailen stopper kun den daglige mail og bevarer samtykket; sletning sker kun på personens egen anmodning via `/slet` eller df@df.dk. Ingen automatisk sletning efter stop. Se [GDPR.md](GDPR.md).
+- **Ejeren har godkendt** dataansvarlig enhed, retsgrundlag, databehandlere og privatlivspolitik. Markeringerne »[skal bekræftes]« er fjernet.
+- **Domæne:** dfelpriser.dk peger på Vercel (A-post og www-CNAME hos Dandomain) og er verificeret som afsenderdomæne i Resend (DKIM, SPF via CNAME, DMARC). `MAIL_FROM=DF-Elpriser <nyhedsbrev@dfelpriser.dk>` og `APP_URL=https://dfelpriser.dk` er sat i Vercel.
+- **Første rigtige testudsendelse** gik ud 23/10 kl. 16.00 til testmodtageren med rigtige priser, prognose og forbehold.
+
+## Mangler før lancering
+
+1. `JURA_GODKENDT=ja` og `OFFENTLIG=ja` i Vercel, når ejeren siger til.
+2. Politisk tekst i feltet `df_budskab_tekst` (leveres af Dansk Folkeparti).
+3. Beslutning om prognosen om vinteren (60–70 % træfsikkerhed mod 89–91 % ellers): vis med tydelig usikkerhed, eller skjul i vintermånederne.
+4. En måde at sende politisk information til dem, der har stoppet den daglige mail (ikke bygget; i dag kun i den daglige mail).
+
+---
+
 # Status 23. oktober 2026 (opdateret efter live-test mod Energi Data Service)
 
 ## Kort
@@ -11,9 +29,9 @@ Den historiske analyse er kørt for hele perioden og for vintermånederne alene,
 1. **DF-priser undersøgt:** se [DF-PRISER.md](DF-PRISER.md). Databasetilgang, double opt-in, samtykkebevis, afmelding, udsendelseslås, spærre og cron er genbrugt.
 2. **Datakilder:** se [DATAKILDER.md](DATAKILDER.md). Energi Data Service er prøvet live og bekræftet; øvrige kilder (tariffer, afgifter, vejr) er ikke prøvet.
 3. **Historisk analyse:** scriptet `npm run analyse` er kørt mod rigtige priser og producerer alle fem målinger fra punkt 8, for hele perioden og for en delperiode (fx vinteren). Resultaterne står i [ANALYSE.md](ANALYSE.md). De hentede priser ligger i `data/cache/`.
-4. **Hjemmeside, tilmelding, skabeloner:** færdige. Hjemmesiden viser kendte priser pr. område uden tilmelding, tilmelding med to adskilte samtykker og double opt-in, afmelding, sletning, skift af postnummer, privatlivspolitik (udkast), metodeside og admin.
+4. **Hjemmeside, tilmelding, skabeloner:** færdige. Hjemmesiden viser kendte priser pr. område uden tilmelding, tilmelding med ét samtykke og double opt-in, stop af den daglige mail, sletning, skift af postnummer, privatlivspolitik, metodeside og admin.
 5. **Prisberegning, prognose, udsendelse:** færdige, se [PROGNOSE.md](PROGNOSE.md) og [DRIFT.md](DRIFT.md).
-6. **Test:** 71 automatiske tests, inklusive DK1/DK2, sommertid (92/96/100 kvarterer), forsinkede og ufuldstændige priser, dobbeltudsendelse, testdata-spærre, spærre før jura og politisk indhold kun med samtykke.
+6. **Test:** 72 automatiske tests, inklusive DK1/DK2, sommertid (92/96/100 kvarterer), forsinkede og ufuldstændige priser, dobbeltudsendelse, testdata-spærre, spærre før jura, stop uden sletning og politisk indhold kun med dækkende samtykke.
 7. **Dokumentation:** drift, omkostninger, fejlhåndtering og GDPR er skrevet.
 
 ## Hvad kræver din beslutning eller handling

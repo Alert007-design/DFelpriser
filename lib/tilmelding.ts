@@ -1,18 +1,10 @@
 import type { Db } from "./db";
 import type { Afsender } from "./mail/afsender";
 import { bekraeftelsesmail } from "./mail/skabeloner";
-import { afmeldtOpbevaringDage, erTestmodtager, juraGodkendt } from "./config";
+import { erTestmodtager, juraGodkendt } from "./config";
 import { omraadeForPostnummer } from "./omraade";
-import {
-  hashToken,
-  laesAfmeldToken,
-  laesPolitikFraToken,
-  laesSkiftToken,
-  laesSletToken,
-  nytToken,
-  rateNoegle,
-} from "./tokens";
-import { bekraeftVistSamtykke, type GaeldendeSamtykke } from "./samtykke-bevis";
+import { hashToken, laesAfmeldToken, laesSkiftToken, laesSletToken, nytToken, rateNoegle } from "./tokens";
+import { bekraeftVistSamtykke } from "./samtykke-bevis";
 import type { Tilmelding } from "./validering";
 
 export type TilmeldResultat =
@@ -40,6 +32,8 @@ async function overGraense(db: Db, noegle: string, maks: number): Promise<boolea
  * Opretter eller fornyer en ubekræftet tilmelding og sender bekræftelsesmail (double opt-in).
  * Svarer "ok" både for nye og allerede tilmeldte, så man ikke kan aflure, hvem der er tilmeldt.
  * Samtykket gemmes kun, hvis formularen viste præcis den gældende tekst (version og SHA-256).
+ * Ét samtykke dækker både elpriserne og politisk information; der oprettes ikke længere et separat
+ * politisk samtykke.
  */
 export async function tilmeld(
   db: Db,
@@ -59,51 +53,35 @@ export async function tilmeld(
   const elpris = await bekraeftVistSamtykke(db, "elpris", { version: input.samtykke_version, hash: input.samtykke_hash });
   if (!elpris) return { status: "samtykke_foraeldet" };
 
-  let politik: GaeldendeSamtykke | null = null;
-  if (input.politik_samtykke) {
-    politik = await bekraeftVistSamtykke(db, "politik", {
-      version: input.politik_samtykke_version!,
-      hash: input.politik_samtykke_hash!,
-    });
-    if (!politik) return { status: "samtykke_foraeldet" };
-  }
-
   const nu = ctx.nu.toISOString();
   const token = nytToken();
-  // Ubekræftede og afmeldte rækker fornyes (en afmeldt person kan tilmelde sig igen via ny bekræftelse).
-  // En aktiv tilmelding røres ikke, så ingen kan ændre en andens postnummer ved at kende e-mailadressen.
+  // Ubekræftede rækker, afmeldte rækker og rækker, hvor den daglige mail er stoppet, fornyes: personen
+  // tilmelder sig igen og bekræfter på ny. En aktiv tilmelding med aktiv mail røres ikke, så ingen kan
+  // ændre en andens postnummer ved at kende e-mailadressen.
   const rows = await db.query<{ id: string }>(
     `insert into tilmeldte (email, postnummer, omraade, test, bekraeft_token_hash, oprettet)
      values ($1, $2, $3, $4, $5, $6)
      on conflict (email) do update set
        postnummer = excluded.postnummer, omraade = excluded.omraade, test = excluded.test,
        status = 'afventer', afmeldt_tidspunkt = null, bekraeftet_tidspunkt = null,
+       elpris_aktiv = true, elpris_stoppet = null,
        bekraeft_token_hash = excluded.bekraeft_token_hash, oprettet = excluded.oprettet
-     where tilmeldte.status in ('afventer', 'afmeldt')
+     where tilmeldte.status in ('afventer', 'afmeldt') or tilmeldte.elpris_aktiv = false
      returning id`,
     [input.email, input.postnummer, omraade, test, hashToken(token), nu],
   );
   if (rows.length === 0) return { status: "ok" }; // allerede aktiv
 
   const id = rows[0].id;
-  // Et nyt forsøg erstatter tidligere samtykker, der aldrig blev bekræftet eller blev trukket tilbage.
+  // Et nyt forsøg erstatter tidligere samtykker (ubekræftede, trukket tilbage eller fra før omlægningen).
   await db.query(`delete from samtykker where tilmeldt_id = $1`, [id]);
-  for (const s of [{ type: "elpris", ...elpris }, ...(politik ? [{ type: "politik", ...politik }] : [])]) {
-    await db.query(
-      `insert into samtykker (tilmeldt_id, type, version, ordlyd, givet) values ($1, $2, $3, $4, $5)`,
-      [id, s.type, s.version, s.tekst, nu],
-    );
-  }
+  await db.query(
+    `insert into samtykker (tilmeldt_id, type, version, ordlyd, givet) values ($1, 'elpris', $2, $3, $4)`,
+    [id, elpris.version, elpris.tekst, nu],
+  );
 
   const link = `${ctx.appUrl}/bekraeft?token=${encodeURIComponent(token)}`;
-  await afsender.send(
-    bekraeftelsesmail({
-      email: input.email,
-      link,
-      appUrl: ctx.appUrl,
-      samtykker: [elpris.tekst, ...(politik ? [politik.tekst] : [])],
-    }),
-  );
+  await afsender.send(bekraeftelsesmail({ email: input.email, link, appUrl: ctx.appUrl, samtykker: [elpris.tekst] }));
   return { status: "ok" };
 }
 
@@ -126,37 +104,22 @@ export async function bekraeft(db: Db, token: string, nu: Date): Promise<boolean
 }
 
 /**
- * Afmelder fra nyhedsbrevet: begge samtykker trækkes tilbage med tidspunkt, og udsendelserne stopper.
- * Rækken bevares som dokumentation for samtykke og tilbagetrækning (se rydOp for, hvornår den slettes).
- * Kan gentages uden fejl.
+ * Stopper kun den daglige mail. Personen og samtykket bevares, så Dansk Folkeparti fortsat må sende politisk
+ * information. Det første stoptidspunkt bevares. Kan gentages uden fejl. Fuld sletning sker kun på personens
+ * udtrykkelige anmodning (se slet).
  */
 export async function afmeld(db: Db, token: string, nu: Date): Promise<"ok" | "ugyldig"> {
   const id = laesAfmeldToken(token);
   if (!id) return "ugyldig";
   await db.query(
-    `with s as (
-       update samtykker set status = 'tilbagekaldt', tilbagekaldt = $2 where tilmeldt_id = $1 and status <> 'tilbagekaldt'
-     )
-     update tilmeldte set status = 'afmeldt', afmeldt_tidspunkt = coalesce(afmeldt_tidspunkt, $2), bekraeft_token_hash = null
-     where id = $1 and status <> 'afmeldt'`,
+    `update tilmeldte set elpris_aktiv = false, elpris_stoppet = coalesce(elpris_stoppet, $2)
+     where id = $1 and elpris_aktiv`,
     [id, nu.toISOString()],
   );
   return "ok";
 }
 
-/** Trækker kun det politiske samtykke tilbage. Elpriserne fortsætter. */
-export async function traekPolitikTilbage(db: Db, token: string, nu: Date): Promise<"ok" | "ugyldig"> {
-  const id = laesPolitikFraToken(token);
-  if (!id) return "ugyldig";
-  await db.query(
-    `update samtykker set status = 'tilbagekaldt', tilbagekaldt = $2
-     where tilmeldt_id = $1 and type = 'politik' and status <> 'tilbagekaldt'`,
-    [id, nu.toISOString()],
-  );
-  return "ok";
-}
-
-/** Sletter personen helt: tilmelding, samtykker, udsendelseslog og ratebegrænsning. */
+/** Sletter personen helt på egen anmodning: tilmelding, samtykker, udsendelseslog og ratebegrænsning. */
 export async function slet(db: Db, token: string): Promise<"ok" | "ugyldig"> {
   const id = laesSletToken(token);
   if (!id) return "ugyldig";
@@ -181,22 +144,17 @@ export async function skiftPostnummer(db: Db, token: string, postnummer: string)
 }
 
 /**
- * Oprydning: ubekræftede tilmeldinger slettes efter 72 timer, ratebegrænsning efter et døgn, og
- * afmeldte efter opbevaringsfristen (AFMELDT_OPBEVARING_DAGE, standard 365). Tidligere driftslog
- * ældre end 180 dage slettes. Slettede personer efterlader intet.
+ * Oprydning: ubekræftede tilmeldinger slettes efter 72 timer (de har aldrig givet et gyldigt samtykke),
+ * ratebegrænsning efter et døgn og driftslog efter 180 dage. Personer, der har stoppet den daglige mail,
+ * slettes aldrig automatisk: det sker kun på deres egen anmodning.
  */
-export async function rydOp(db: Db, nu: Date): Promise<{ slettede: number; afmeldteSlettet: number }> {
+export async function rydOp(db: Db, nu: Date): Promise<{ slettede: number }> {
   const slettede = await db.query(
     `delete from tilmeldte where status = 'afventer'
        and oprettet < $1::timestamptz - interval '${BEKRAEFT_TIMER} hours' returning id`,
     [nu.toISOString()],
   );
-  const afmeldte = await db.query(
-    `delete from tilmeldte where status = 'afmeldt'
-       and afmeldt_tidspunkt < $1::timestamptz - make_interval(days => $2::int) returning id`,
-    [nu.toISOString(), afmeldtOpbevaringDage()],
-  );
   await db.query(`delete from ratebegraensning where tidspunkt < $1::timestamptz - interval '1 day'`, [nu.toISOString()]);
   await db.query(`delete from driftslog where tidspunkt < $1::timestamptz - interval '180 days'`, [nu.toISOString()]);
-  return { slettede: slettede.length, afmeldteSlettet: afmeldte.length };
+  return { slettede: slettede.length };
 }

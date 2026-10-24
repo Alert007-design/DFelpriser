@@ -10,7 +10,7 @@ export function hashToken(token: string): string {
 }
 
 /** Hvad et token giver lov til. Et token kan kun bruges til sit eget formål. */
-type Formaal = "afmeld" | "slet" | "skift-postnummer" | "politik-fra";
+type Formaal = "afmeld" | "slet" | "skift-postnummer";
 
 function signatur(formaal: Formaal, id: string): string {
   return createHmac("sha256", kraev("TOKEN_HEMMELIGHED")).update(`${formaal}:${id}`).digest("base64url");
@@ -29,7 +29,7 @@ function laesToken(formaal: Formaal, token: string): string | null {
   return id;
 }
 
-/** Afmeldingstoken = id + HMAC. Kan genskabes til hver mail uden at gemme det. */
+/** Stop-token (afmelding af den daglige mail) = id + HMAC. Kan genskabes til hver mail uden at gemme det. */
 export const afmeldToken = (id: string) => lavToken("afmeld", id);
 export const laesAfmeldToken = (token: string) => laesToken("afmeld", token);
 
@@ -40,10 +40,6 @@ export const laesSletToken = (token: string) => laesToken("slet", token);
 /** Token til at skifte postnummer. */
 export const skiftToken = (id: string) => lavToken("skift-postnummer", id);
 export const laesSkiftToken = (token: string) => laesToken("skift-postnummer", token);
-
-/** Token til kun at trække det politiske samtykke tilbage (elpriserne fortsætter). */
-export const politikFraToken = (id: string) => lavToken("politik-fra", id);
-export const laesPolitikFraToken = (token: string) => laesToken("politik-fra", token);
 
 /** Nøgle til ratebegrænsning. E-mail og IP gemmes som HMAC, ikke i klartekst. */
 export function rateNoegle(art: "ip" | "email", vaerdi: string): string {
