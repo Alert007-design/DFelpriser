@@ -14,7 +14,7 @@ Ejeren har åbnet tjenesten: `JURA_GODKENDT=ja` (alle kan tilmelde sig og modtag
 ## Mangler efter lancering
 
 1. Politisk tekst i feltet `df_budskab_tekst` (leveres af Dansk Folkeparti).
-3. Beslutning om prognosen om vinteren (60–70 % træfsikkerhed mod 89–91 % ellers): vis med tydelig usikkerhed, eller skjul i vintermånederne.
+2. Beslutning om prognosen om vinteren (60–70 % træfsikkerhed mod 89–91 % ellers): vis med tydelig usikkerhed, eller skjul i vintermånederne.
 3. En måde at sende politisk information til dem, der har stoppet den daglige mail (ikke bygget; i dag kun i den daglige mail).
 
 ---
