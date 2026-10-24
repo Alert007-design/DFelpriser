@@ -41,15 +41,25 @@ export async function offentligeDage(omr: Omraade, nu: Date): Promise<{ idag: Da
 export async function gemtePrognoser(omr: Omraade, nu: Date): Promise<DagsPrognose[]> {
   if (!process.env.DATABASE_URL) return [];
   try {
-    const rows = await hentDb().query<{ data: DagsPrognose }>(
+    const rows = await hentDb().query<{ data: unknown }>(
       `select data from prognoser
        where omraade = $1 and for_dato > $2::date and kendt_til = (select max(kendt_til) from prognoser where omraade = $1)
        order by for_dato`,
       [omr, danskDato(nu)],
     );
-    return rows.map((r) => r.data);
+    return rows.map((r) => laesPrognoseData(r.data)).filter((p): p is DagsPrognose => !!p && typeof p.dato === "string");
   } catch {
     return [];
+  }
+}
+
+/** Gemte prognoser kan ligge som objekt eller (fra en tidligere fejl) som JSON-tekst. Begge læses; ugyldige springes over. */
+export function laesPrognoseData(data: unknown): DagsPrognose | null {
+  try {
+    const v = typeof data === "string" ? JSON.parse(data) : data;
+    return v && typeof v === "object" ? (v as DagsPrognose) : null;
+  } catch {
+    return null;
   }
 }
 

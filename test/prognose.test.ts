@@ -128,3 +128,14 @@ describe("hvilken dag er billigst", () => {
     if (v.type === "taet_loeb") expect(v.datoer).toEqual(["d1", "d2"]);
   });
 });
+
+describe("gemte prognoser", () => {
+  it("læses både som objekt og som JSON-tekst, og ugyldige springes over", async () => {
+    const { laesPrognoseData } = await import("@/lib/offentlig");
+    const p = { dato: "2026-10-25", horisont: 1, gennemsnit: 71.5 };
+    expect(laesPrognoseData(p)?.dato).toBe("2026-10-25");
+    expect(laesPrognoseData(JSON.stringify(p))?.dato).toBe("2026-10-25");
+    expect(laesPrognoseData("ikke json")).toBeNull();
+    expect(laesPrognoseData(null)).toBeNull();
+  });
+});

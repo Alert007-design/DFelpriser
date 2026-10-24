@@ -7,6 +7,7 @@ import { OMRAADER, type Omraade } from "./pris/typer";
 import { maaVisePrognose } from "./prognose/prognose";
 import { middel } from "./prognose/model";
 import { danskDato, laegDage } from "./tid";
+import { laesPrognoseData } from "./offentlig";
 import { FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET } from "./samtykke";
 
 const COOKIE_SVAR = "admin";
@@ -54,9 +55,13 @@ export interface Opfoelgning {
 
 /** Stored prognoser sammenlignet med de faktiske priser, når de er kendt. Viser kun, hvad modellen faktisk har sagt. */
 async function opfoelgning(db: Db): Promise<Opfoelgning[]> {
-  const rows = await db.query<{ omraade: Omraade; for_dato: string; data: { gennemsnit: number } }>(
+  const raa = await db.query<{ omraade: Omraade; for_dato: string; data: unknown }>(
     `select omraade, for_dato::text, data from prognoser order by for_dato desc limit 20`,
   );
+  const rows = raa.flatMap((r) => {
+    const data = laesPrognoseData(r.data);
+    return data ? [{ ...r, data }] : [];
+  });
   const ud: Opfoelgning[] = [];
   for (const r of rows) {
     const slots = await hentSlots(db, r.omraade, r.for_dato);

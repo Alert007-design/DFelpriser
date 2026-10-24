@@ -173,7 +173,9 @@ export async function udsend(
           prognoseDel = { dage: p.dage, vurdering: vurderBilligsteDag({ dato: imorgen, gennemsnit: dag.gennemsnit }, p.dage) };
           for (const d of p.dage) {
             await db.query(
-              `insert into prognoser (omraade, for_dato, kendt_til, model_version, data) values ($1, $2, $3, $4, $5::jsonb)
+              // $5 sendes som tekst og castes i databasen. Castes parameteren direkte til jsonb, pakker
+              // postgres-driveren strengen ind én gang til, og der gemmes en JSON-tekst i stedet for et objekt.
+              `insert into prognoser (omraade, for_dato, kendt_til, model_version, data) values ($1, $2, $3, $4, $5::text::jsonb)
                on conflict do nothing`,
               [omr, d.dato, imorgen, p.modelVersion, JSON.stringify(d)],
             );
