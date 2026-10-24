@@ -7,12 +7,15 @@
 - **Domæne:** dfelpriser.dk peger på Vercel (A-post og www-CNAME hos Dandomain) og er verificeret som afsenderdomæne i Resend (DKIM, SPF via CNAME, DMARC). `MAIL_FROM=DF-Elpriser <nyhedsbrev@dfelpriser.dk>` og `APP_URL=https://dfelpriser.dk` er sat i Vercel.
 - **Første rigtige testudsendelse** gik ud 23/10 kl. 16.00 til testmodtageren med rigtige priser, prognose og forbehold.
 
-## Mangler før lancering
+## Lanceret 24. oktober 2026 kl. 14.45
 
-1. `JURA_GODKENDT=ja` og `OFFENTLIG=ja` i Vercel, når ejeren siger til.
-2. Politisk tekst i feltet `df_budskab_tekst` (leveres af Dansk Folkeparti).
+Ejeren har åbnet tjenesten: `JURA_GODKENDT=ja` (alle kan tilmelde sig og modtage mails) og `OFFENTLIG=ja` (søgemaskiner må indeksere) er sat i Vercel.
+
+## Mangler efter lancering
+
+1. Politisk tekst i feltet `df_budskab_tekst` (leveres af Dansk Folkeparti).
 3. Beslutning om prognosen om vinteren (60–70 % træfsikkerhed mod 89–91 % ellers): vis med tydelig usikkerhed, eller skjul i vintermånederne.
-4. En måde at sende politisk information til dem, der har stoppet den daglige mail (ikke bygget; i dag kun i den daglige mail).
+3. En måde at sende politisk information til dem, der har stoppet den daglige mail (ikke bygget; i dag kun i den daglige mail).
 
 ---
 

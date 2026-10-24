@@ -2,7 +2,7 @@
 
 Dansk, fuldautomatisk hjemmeside og dagligt nyhedsbrev, der viser, hvornår strømmen er billigst i morgen, og giver en prognose for de to følgende dage. En gratis service fra Dansk Folkeparti, bygget efter samme grundprincip som DF-priser.
 
-**Status: bygget og testet med testdata, men ikke lanceret.** Intet er offentliggjort, tilmelding er spærret (`JURA_GODKENDT=nej`), og der er ikke sendt mails til rigtige modtagere. Se [docs/STATUS.md](docs/STATUS.md) for, hvad der er gjort, og hvad der mangler før lancering.
+**Status: lanceret 24. oktober 2026 på dfelpriser.dk.** Tilmelding er åben (`JURA_GODKENDT=ja`), og det daglige nyhedsbrev sendes kl. 16 fra nyhedsbrev@dfelpriser.dk. Se [docs/STATUS.md](docs/STATUS.md) for forløbet og de åbne punkter.
 
 ## Dokumentation
 
