@@ -13,7 +13,13 @@ import { dagensGraenser, danskDato, foerUdsendelsesvindue, iUdsendelsesvindue, l
 import { afmeldToken, skiftToken, sletToken } from "./tokens";
 import { FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET } from "./samtykke";
 
-export type OmraadeStatus = "sprunget_over" | "faerdig" | "afventer_priser" | "droppet" | "tid_opbrugt" | "allerede_faerdig";
+export type OmraadeStatus = "sprunget_over" | "faerdig" | "afventer_priser" | "droppet" | "i_gang" | "allerede_faerdig";
+
+/**
+ * Højst så mange mails sendes i ét kald til udsendelsen. Gmail bremser afsendere, der sender tusindvis af
+ * mails på få sekunder. Cron kalder derfor hvert minut, og hvert kald tager de næste 100.
+ */
+export const MAKS_PR_KALD = PORTION;
 
 export interface OmraadeResultat {
   status: OmraadeStatus;
@@ -66,11 +72,20 @@ async function brugerTestdata(db: Db, omr: Omraade, dato: string): Promise<boole
   return r.n > 0;
 }
 
+/** Modtagere, der skal have dagens brev og endnu ikke er reserveret (hverken sendt, fejlet eller i gang). */
+const MODTAGERE_SQL = `
+  from tilmeldte t
+  where t.status = 'aktiv' and t.elpris_aktiv and t.omraade = $3 and ($2::boolean = false or t.test = true)
+    and exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'elpris' and s.status = 'aktiv')
+    and not exists (select 1 from udsendelseslog l where l.tilmeldt_id = t.id and l.dato = $1)`;
+
 /**
- * Sender dagens nyhedsbrev for begge elprisområder. Kan kaldes mange gange (cron hvert 5. minut fra 16.00 til
- * 18.59 dansk tid) uden at nogen får to mails:
+ * Sender dagens nyhedsbrev for begge elprisområder. Kan kaldes mange gange (cron hvert minut fra 16.00 dansk
+ * tid) uden at nogen får to mails:
+ *  - hvert kald sender højst MAKS_PR_KALD (100) mails i alt og fortsætter, hvor det forrige slap;
  *  - hver modtager reserveres med INSERT ... ON CONFLICT DO NOTHING på (tilmeldt_id, dato), og kun de rækker,
  *    kørslen selv fik indsat, sendes;
+ *  - området får først status 'faerdig', når ingen modtagere er tilbage; indtil da er den 'i_gang';
  *  - sendes allerede (status 'faerdig'), gør kørslen intet.
  *
  * Mangler morgendagens priser (eller er datasættet ufuldstændigt), sendes der intet for det område. Der
@@ -85,13 +100,12 @@ export async function udsend(
     appUrl: string;
     kilde: Priskilde;
     tvang?: boolean;
-    tidsbudgetMs?: number;
-    ur?: () => number;
+    /** Højst så mange mails i dette kald, på tværs af områderne. Standard og øvre grænse: MAKS_PR_KALD. */
+    maksMails?: number;
   },
 ): Promise<UdsendResultat> {
   const { nu, appUrl, kilde } = opts;
-  const ur = opts.ur ?? Date.now;
-  const slut = ur() + (opts.tidsbudgetMs ?? 240_000);
+  let tilbage = Math.min(opts.maksMails ?? MAKS_PR_KALD, MAKS_PR_KALD);
   const dato = danskDato(nu);
   const imorgen = laegDage(dato, 1);
   const resultat: UdsendResultat = { status: "kort", dato, omraader: {} };
@@ -199,97 +213,96 @@ export async function udsend(
     let sendt = 0;
     let fejlet = 0;
     const fejlbeskeder: string[] = [];
-    let tidOpbrugt = false;
 
-    for (;;) {
-      if (ur() > slut) {
-        tidOpbrugt = true;
-        break;
-      }
+    if (tilbage > 0) {
       const kandidater = await db.query<Modtager>(
         `select t.id, t.email, t.postnummer,
                 -- Politisk information er dækket af elprissamtykket fra version 2, og før det af et separat samtykke.
                 (exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'elpris' and s.status = 'aktiv' and s.version >= $4)
                  or exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'politik' and s.status = 'aktiv')) as har_politik
-         from tilmeldte t
-         where t.status = 'aktiv' and t.elpris_aktiv and t.omraade = $3 and ($2::boolean = false or t.test = true)
-           and exists (select 1 from samtykker s where s.tilmeldt_id = t.id and s.type = 'elpris' and s.status = 'aktiv')
-           and not exists (select 1 from udsendelseslog l where l.tilmeldt_id = t.id and l.dato = $1)
-         order by t.id limit ${PORTION}`,
+         ${MODTAGERE_SQL}
+         order by t.id limit ${tilbage}`,
         [dato, kunTest, omr, FOERSTE_VERSION_MED_POLITIK_I_SAMTYKKET],
       );
-      if (kandidater.length === 0) break;
 
       const reserveret = new Set(
-        (
-          await db.query<{ tilmeldt_id: string }>(
-            `insert into udsendelseslog (tilmeldt_id, dato)
-             select unnest($1::uuid[]), $2::date
-             on conflict do nothing returning tilmeldt_id`,
-            [kandidater.map((m) => m.id), dato],
-          )
-        ).map((r) => r.tilmeldt_id),
+        kandidater.length === 0
+          ? []
+          : (
+              await db.query<{ tilmeldt_id: string }>(
+                `insert into udsendelseslog (tilmeldt_id, dato)
+                 select unnest($1::uuid[]), $2::date
+                 on conflict do nothing returning tilmeldt_id`,
+                [kandidater.map((m) => m.id), dato],
+              )
+            ).map((r) => r.tilmeldt_id),
       );
       const modtagere = kandidater.filter((m) => reserveret.has(m.id));
-      if (modtagere.length === 0) continue; // en anden kørsel nåede dem først
+      tilbage -= kandidater.length; // også dem en anden kørsel nåede først, så et kald aldrig overskrider grænsen
 
-      const mails: Mail[] = modtagere.map((m) => {
-        const t = (x: string) => encodeURIComponent(x);
-        const mail = elprisMail({
-          omraade: omr,
-          postnummer: m.postnummer,
-          dag,
-          serie,
-          prognose: prognoseDel,
-          dfBudskab: m.har_politik && budskab.trim() ? budskab : undefined,
-          links: {
-            hjemmeside: appUrl,
-            logo: `${appUrl}/mail/logo-lys.png`,
-            bolge: `${appUrl}/mail/bolge.png`,
-            privatliv: `${appUrl}/privatlivspolitik`,
-            stop: `${appUrl}/afmeld?token=${t(afmeldToken(m.id))}`,
-            stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,
-            skiftPostnummer: `${appUrl}/skift-postnummer?token=${t(skiftToken(m.id))}`,
-            slet: `${appUrl}/slet?token=${t(sletToken(m.id))}`,
-          },
+      if (modtagere.length > 0) {
+        const mails: Mail[] = modtagere.map((m) => {
+          const t = (x: string) => encodeURIComponent(x);
+          const mail = elprisMail({
+            omraade: omr,
+            postnummer: m.postnummer,
+            dag,
+            serie,
+            prognose: prognoseDel,
+            dfBudskab: m.har_politik && budskab.trim() ? budskab : undefined,
+            links: {
+              hjemmeside: appUrl,
+              logo: `${appUrl}/mail/logo-lys.png`,
+              bolge: `${appUrl}/mail/bolge.png`,
+              privatliv: `${appUrl}/privatlivspolitik`,
+              stop: `${appUrl}/afmeld?token=${t(afmeldToken(m.id))}`,
+              stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,
+              skiftPostnummer: `${appUrl}/skift-postnummer?token=${t(skiftToken(m.id))}`,
+              slet: `${appUrl}/slet?token=${t(sletToken(m.id))}`,
+            },
+          });
+          return { ...mail, to: m.email };
         });
-        return { ...mail, to: m.email };
-      });
 
-      const ids = modtagere.map((m) => m.id);
-      try {
-        const resendIds = await afsender.sendPortion(mails, portionsnoegle(dato, omr, ids));
-        await db.query(
-          `update udsendelseslog l set status = 'sendt', resend_id = v.resend_id, opdateret = now()
-           from unnest($1::uuid[], $2::text[]) as v(tilmeldt_id, resend_id)
-           where l.tilmeldt_id = v.tilmeldt_id and l.dato = $3`,
-          [ids, resendIds, dato],
-        );
-        sendt += ids.length;
-      } catch (fejl) {
-        console.error("Portion fejlede", fejl);
-        fejlbeskeder.push(fejl instanceof Error ? fejl.message : String(fejl));
-        await db.query(
-          `update udsendelseslog set status = 'fejlet', opdateret = now() where tilmeldt_id = any($1::uuid[]) and dato = $2`,
-          [ids, dato],
-        );
-        fejlet += ids.length;
+        const ids = modtagere.map((m) => m.id);
+        try {
+          const resendIds = await afsender.sendPortion(mails, portionsnoegle(dato, omr, ids));
+          await db.query(
+            `update udsendelseslog l set status = 'sendt', resend_id = v.resend_id, opdateret = now()
+             from unnest($1::uuid[], $2::text[]) as v(tilmeldt_id, resend_id)
+             where l.tilmeldt_id = v.tilmeldt_id and l.dato = $3`,
+            [ids, resendIds, dato],
+          );
+          sendt += ids.length;
+        } catch (fejl) {
+          console.error("Portion fejlede", fejl);
+          fejlbeskeder.push(fejl instanceof Error ? fejl.message : String(fejl));
+          await db.query(
+            `update udsendelseslog set status = 'fejlet', opdateret = now() where tilmeldt_id = any($1::uuid[]) and dato = $2`,
+            [ids, dato],
+          );
+          fejlet += ids.length;
+        }
       }
     }
+
+    // Færdig først når ingen modtagere er tilbage. En tælling afgør det uden at sende noget.
+    const [{ n }] = await db.query<{ n: number }>(`select count(*)::int as n ${MODTAGERE_SQL}`, [dato, kunTest, omr]);
+    const mereTilbage = n > 0;
 
     await db.query(
       `update udsendelser set sendt = sendt + $3, fejlet = fejlet + $4, prognose = $5,
          status = case when $6::boolean then 'i_gang' else 'faerdig' end,
          afsluttet = case when $6::boolean then null else now() end, note = null
        where dato = $1 and omraade = $2`,
-      [dato, omr, sendt, fejlet, prognoseDel !== null, tidOpbrugt],
+      [dato, omr, sendt, fejlet, prognoseDel !== null, mereTilbage],
     );
     if (fejlet > 0) {
       await driftslog(db, "fejl", "udsendelse", `${fejlet} mails til ${omr} kunne ikke sendes: ${fejlbeskeder.join("; ")}`);
       await adminBesked(afsender, `Fejl i udsendelsen for ${omr}`, [`Dato: ${dato}`, `Sendt: ${sendt}, fejlet: ${fejlet}`, ...fejlbeskeder]);
     }
     await driftslog(db, "info", "udsendelse", `${omr} ${dato}: ${sendt} sendt, ${fejlet} fejlet, prognose ${prognoseDel ? "ja" : "nej"}`);
-    resultat.omraader[omr] = { status: tidOpbrugt ? "tid_opbrugt" : "faerdig", sendt, fejlet, prognose: prognoseDel !== null };
+    resultat.omraader[omr] = { status: mereTilbage ? "i_gang" : "faerdig", sendt, fejlet, prognose: prognoseDel !== null };
   }
   return resultat;
 }

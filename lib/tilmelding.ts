@@ -1,5 +1,5 @@
 import type { Db } from "./db";
-import type { Afsender } from "./mail/afsender";
+import type { Afsender, Mail } from "./mail/afsender";
 import { bekraeftelsesmail } from "./mail/skabeloner";
 import { erTestmodtager, juraGodkendt } from "./config";
 import { omraadeForPostnummer } from "./omraade";
@@ -26,6 +26,21 @@ async function overGraense(db: Db, noegle: string, maks: number): Promise<boolea
   if (antal >= maks) return true;
   await db.query(`insert into ratebegraensning (noegle) values ($1)`, [noegle]);
   return false;
+}
+
+/**
+ * Sender bekræftelsesmailen og logger udfaldet (lykkedes eller fejlet med Resends fejltekst) til Vercels logs.
+ * Adressen logges aldrig i klartekst: kun tilmeldingens id, og adressen fjernes fra fejlteksten.
+ */
+async function sendBekraeftelse(afsender: Afsender, id: string, email: string, mail: Mail): Promise<void> {
+  try {
+    const resendId = await afsender.send(mail);
+    console.log("bekraeftelsesmail", JSON.stringify({ resultat: "sendt", tilmeldt: id, resend_id: resendId }));
+  } catch (fejl) {
+    const tekst = fejl instanceof Error ? fejl.message : String(fejl);
+    console.error("bekraeftelsesmail", JSON.stringify({ resultat: "fejlet", tilmeldt: id, fejl: tekst.replace(new RegExp(email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "[adresse]") }));
+    throw fejl;
+  }
 }
 
 /**
@@ -81,7 +96,7 @@ export async function tilmeld(
   );
 
   const link = `${ctx.appUrl}/bekraeft?token=${encodeURIComponent(token)}`;
-  await afsender.send(bekraeftelsesmail({ email: input.email, link, appUrl: ctx.appUrl, samtykker: [elpris.tekst] }));
+  await sendBekraeftelse(afsender, id, input.email, bekraeftelsesmail({ email: input.email, link, appUrl: ctx.appUrl, samtykker: [elpris.tekst] }));
   return { status: "ok" };
 }
 

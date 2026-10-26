@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { afmeld, bekraeft, rydOp, skiftPostnummer, slet, tilmeld } from "@/lib/tilmelding";
 import { tilmeldingSkema, type Tilmelding } from "@/lib/validering";
 import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
@@ -75,6 +75,28 @@ describe("tilmelding med double opt-in", () => {
     expect(ss.bekraeftet).toBeTruthy();
     // linket kan kun bruges én gang
     expect(await bekraeft(db, tokenFraMail(af.sendte[0].html), ctx.nu)).toBe(false);
+  });
+
+  it("logger udfaldet af bekræftelsesmailen uden e-mailadressen i klartekst", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const fejlLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await tilmeld(db, falskAfsender(), input(), ctx);
+      const ok = log.mock.calls.find((c) => c[0] === "bekraeftelsesmail")!;
+      expect(JSON.parse(ok[1] as string)).toMatchObject({ resultat: "sendt", resend_id: "id-1" });
+
+      const slem = falskAfsender();
+      slem.send = async () => {
+        throw new Error("Resend: The anna@eksempel.dk address is not valid");
+      };
+      await expect(tilmeld(db, slem, input({ email: "anna@eksempel.dk", postnummer: "8000" }), ctx)).rejects.toThrow();
+      const fejl = fejlLog.mock.calls.find((c) => c[0] === "bekraeftelsesmail")!;
+      expect(JSON.parse(fejl[1] as string)).toMatchObject({ resultat: "fejlet", fejl: "Resend: The [adresse] address is not valid" });
+      for (const c of [...log.mock.calls, ...fejlLog.mock.calls]) expect(JSON.stringify(c)).not.toContain("anna@eksempel.dk");
+    } finally {
+      log.mockRestore();
+      fejlLog.mockRestore();
+    }
   });
 
   it("DK1 for Jylland og Fyn, DK2 for Sjælland", async () => {
