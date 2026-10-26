@@ -1,9 +1,24 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "crons": [
-    { "path": "/api/cron/hent-priser", "schedule": "*/10 2,10-15 * * *" },
-    { "path": "/api/cron/udsend", "schedule": "*/5 14-18 * * *" },
-    { "path": "/api/cron/ryd-op", "schedule": "23 * * * *" }
+    {
+      "path": "/api/cron/hent-priser",
+      "schedule": "*/10 2,10-15 * * *"
+    },
+    {
+      "path": "/api/cron/udsend",
+      "schedule": "* 14,15 * * *"
+    },
+    {
+      "path": "/api/cron/udsend",
+      "schedule": "*/5 16-18 * * *"
+    },
+    {
+      "path": "/api/cron/ryd-op",
+      "schedule": "23 * * * *"
+    }
   ]
 }

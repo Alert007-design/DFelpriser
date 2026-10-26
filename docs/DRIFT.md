@@ -5,7 +5,7 @@
 | Job | Tid (UTC cron) | Hvad |
 |---|---|---|
 | `/api/cron/hent-priser` | hvert 10. min kl. 02 og 10–15 | Henter de seneste 7 døgn, i dag og i morgen. Idempotent. Logger i `hentelog` |
-| `/api/cron/udsend` | hvert 5. min kl. 14–18 | Gør kun noget 16.00–18.59 dansk tid, sommer som vinter. Se nedenfor |
+| `/api/cron/udsend` | hvert minut kl. 14–15 og hvert 5. min kl. 16–18 | Gør kun noget 16.00–18.59 dansk tid, sommer som vinter. Sender højst 100 mails pr. kald. Se nedenfor |
 | `/api/cron/ryd-op` | hver time | Sletter ubekræftede (72 t), gamle ratebegrænsninger og logposter over 180 dage. Personer, der har stoppet mailen, slettes aldrig automatisk |
 
 Cron kører altid i UTC. Handleren afgør selv dansk tid, så 16.00 er rigtigt både sommer og vinter.
@@ -15,7 +15,7 @@ Cron kører altid i UTC. Handleren afgør selv dansk tid, så 16.00 er rigtigt b
 1. Pr. område (DK1, DK2) låses dagens række i `udsendelser`.
 2. Er morgendagens døgn ikke fuldstændigt, hentes det igen. Mangler det stadig: status `afventer_priser`, besked i driftsloggen og til `ADMIN_EMAIL`, og et nyt forsøg om 5 minutter. **Der bruges aldrig gamle eller opdigtede priser.**
 3. Kl. 19.00, hvis priserne stadig mangler: status `droppet`, log og besked. Intet sendes den dag.
-4. Er alt klar, beregnes indhold én gang pr. område og sendes i portioner à 100. Hver modtager reserveres i `udsendelseslog` (primærnøgle: person, dato), så ingen får to mails, selv ved samtidige kørsler eller genstart. Fejlede portioner sendes ikke igen automatisk (hellere én manglende end én dobbelt); de logges, og admin får besked.
+4. Er alt klar, beregnes indhold én gang pr. område og sendes højst 100 mails pr. kald (på tværs af begge områder), så Gmail ikke bremser afsenderen; cron kalder hvert minut fra 16.00, så op til ca. 6.000 modtagere nås inden 16.59. Et område står som `i_gang`, indtil ingen modtagere er tilbage, og først da som `faerdig`. Hver modtager reserveres i `udsendelseslog` (primærnøgle: person, dato), så ingen får to mails, selv ved samtidige kørsler eller genstart. Fejlede portioner sendes ikke igen automatisk (hellere én manglende end én dobbelt); de logges, og admin får besked.
 5. Testdata og manglende juridisk godkendelse begrænser modtagerne til testmodtagere.
 
 ## Fejl og hvad der sker
@@ -39,8 +39,8 @@ Adgangskode (`ADMIN_PASSWORD`). Viser abonnenttal (aktive samtykker, hvor mange 
 Disse trin kræver dine konti og er ikke udført:
 
 1. **Supabase:** opret et NYT projekt (region eu-central-1). Kør `supabase/migrations/*.sql` i SQL Editor. Læg forbindelsesstrengen (Transaction pooler, port 6543) i `DATABASE_URL`.
-2. **Resend:** opret afsenderdomæne til DF-Elpriser (og DNS-poster). Sæt `RESEND_API_KEY`, `MAIL_FROM`.
-3. **Vercel:** nyt projekt fra dette repo, region fra1, Pro-plan (cron hvert 5. minut kræver Pro). Sæt variablerne fra `.env.example`: `TOKEN_HEMMELIGHED`, `CRON_SECRET`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`, `PRISKILDE=live`. **Lad `JURA_GODKENDT=nej` og `OFFENTLIG=nej`.**
+2. **Resend:** opret afsenderdomæne til DF-Elpriser (og DNS-poster). Sæt `RESEND_API_KEY`, `MAIL_FROM`. Valgfrit: `MAIL_FROM_NYHEDSBREV` giver nyhedsbrevet en anden afsender end bekræftelsesmailen; er den tom, bruges `MAIL_FROM`.
+3. **Vercel:** nyt projekt fra dette repo, region fra1, Pro-plan (cron hvert minut kræver Pro). Sæt variablerne fra `.env.example`: `TOKEN_HEMMELIGHED`, `CRON_SECRET`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, `APP_URL`, `PRISKILDE=live`. **Lad `JURA_GODKENDT=nej` og `OFFENTLIG=nej`.**
 4. **Netværk:** hvis jobbene kører et sted med begrænset udgående trafik, skal `api.energidataservice.dk` tillades.
 5. **Fyld historik:** kald `/api/cron/hent-priser?fra=2026-06-01&til=2026-06-30` (med `Authorization: Bearer <CRON_SECRET>`) i blokke på højst 31 døgn tilbage til mindst 130 dage. Prognosen kræver historik.
 6. **Analysen mod rigtige priser er gennemført** (se [ANALYSE.md](ANALYSE.md)); modellen består de godkendte krav. Gentag med `npm run analyse -- <fra> <til> [<delperiode-fra> <delperiode-til>]`, når der er nye data, fx efter næste vinter.

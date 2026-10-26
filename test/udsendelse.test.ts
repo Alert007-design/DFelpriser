@@ -5,7 +5,7 @@ import type { Priskilde } from "@/lib/kilder/typer";
 import { hentOgGem } from "@/lib/pris/lager";
 import { dagensGraenser } from "@/lib/tid";
 import type { Slot } from "@/lib/pris/typer";
-import { falskAfsender, indsaetTestpriser, indsaetTilmeldt, nyDb } from "./hjaelp";
+import { falskAfsender, indsaetMange, indsaetTestpriser, indsaetTilmeldt, nyDb } from "./hjaelp";
 
 const APP = "https://eksempel.test";
 // Fredag 23. oktober 2026, 16.00 dansk tid (sommertid er slut 25. oktober) = 14.00 UTC.
@@ -251,6 +251,89 @@ describe("udsendelse kl. 16", () => {
     const [u] = await db.query<{ prognose: boolean }>(`select prognose from udsendelser where omraade = 'DK2'`);
     expect(u.prognose).toBe(false);
   });
+});
+
+describe("udsendelse i portioner (Gmail-beskyttelse)", () => {
+  let db: Awaited<ReturnType<typeof nyDb>>;
+  const minutter = (n: number) => new Date(KL16.getTime() + n * 60_000);
+  beforeEach(async () => {
+    process.env.JURA_GODKENDT = "ja";
+    process.env.ADMIN_EMAIL = "";
+    db = await nyDb();
+    await indsaetTestpriser(db, "2026-10-23", "2026-10-24");
+    await db.query(`update spotpriser set kilde = 'energidataservice:DayAheadPrices'`);
+  });
+
+  it("sender højst 100 pr. kald, fortsætter hvor det slap og markerer først færdig, når alle er sendt", async () => {
+    await indsaetMange(db, 250);
+    const af = falskAfsender();
+    const k = livelignende({ udgiv: () => true });
+    const status: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      const foer = af.sendte.length;
+      const r = await udsend(db, af, { nu: minutter(i), appUrl: APP, kilde: k });
+      expect(af.sendte.length - foer).toBeLessThanOrEqual(100);
+      status.push(r.omraader.DK2!.status);
+    }
+    expect(status).toEqual(["i_gang", "i_gang", "faerdig", "allerede_faerdig"]);
+    expect(af.sendte).toHaveLength(250);
+    expect(new Set(af.sendte.map((m) => m.to)).size).toBe(250);
+    const [u] = await db.query<{ status: string; sendt: number; afsluttet: string | null }>(
+      `select status, sendt, afsluttet from udsendelser where omraade = 'DK2'`,
+    );
+    expect(u).toMatchObject({ status: "faerdig", sendt: 250 });
+    expect(u.afsluttet).not.toBeNull();
+  });
+
+  it("er ikke færdig, når præcis 100 er sendt og flere venter", async () => {
+    await indsaetMange(db, 101);
+    const af = falskAfsender();
+    const r = await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
+    expect(r.omraader.DK2).toMatchObject({ status: "i_gang", sendt: 100 });
+    const [u] = await db.query<{ status: string; afsluttet: string | null }>(`select status, afsluttet from udsendelser where omraade = 'DK2'`);
+    expect(u).toMatchObject({ status: "i_gang", afsluttet: null });
+  });
+
+  it("deler grænsen på 100 mellem områderne i ét kald", async () => {
+    await indsaetMange(db, 80, "DK1");
+    await db.query(`update tilmeldte set email = 'x' || email`);
+    await indsaetMange(db, 80, "DK2");
+    // samtykker til de omdøbte rækker findes allerede; kun mailen er ændret
+    const af = falskAfsender();
+    const r = await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
+    expect(af.sendte).toHaveLength(100);
+    expect(r.omraader.DK1).toMatchObject({ status: "faerdig", sendt: 80 });
+    expect(r.omraader.DK2).toMatchObject({ status: "i_gang", sendt: 20 });
+  });
+
+  it("samtidige kald på tværs af minutter giver ingen dobbeltudsendelse", async () => {
+    await indsaetMange(db, 350);
+    const af = falskAfsender();
+    const k = livelignende({ udgiv: () => true });
+    await Promise.all([0, 0, 0, 1, 1].map((m) => udsend(db, af, { nu: minutter(m), appUrl: APP, kilde: k })));
+    expect(af.sendte.length).toBeLessThanOrEqual(500);
+    expect(new Set(af.sendte.map((m) => m.to)).size).toBe(af.sendte.length);
+    for (let m = 2; m < 12; m++) await udsend(db, af, { nu: minutter(m), appUrl: APP, kilde: k });
+    expect(af.sendte).toHaveLength(350);
+    expect(new Set(af.sendte.map((m) => m.to)).size).toBe(350);
+  });
+
+  it("når 6.000 tilmeldte inden 16.59 med hvert minut som kald", async () => {
+    await indsaetMange(db, 6000);
+    const af = falskAfsender();
+    const k = livelignende({ udgiv: () => true });
+    let storste = 0;
+    for (let m = 0; m < 60; m++) {
+      const foer = af.sendte.length;
+      await udsend(db, af, { nu: minutter(m), appUrl: APP, kilde: k });
+      storste = Math.max(storste, af.sendte.length - foer);
+    }
+    expect(storste).toBe(100);
+    expect(af.sendte).toHaveLength(6000);
+    expect(new Set(af.sendte.map((m) => m.to)).size).toBe(6000);
+    const [u] = await db.query<{ status: string }>(`select status from udsendelser where omraade = 'DK2'`);
+    expect(u.status).toBe("faerdig");
+  }, 120_000);
 });
 
 describe("hentning og lager", () => {

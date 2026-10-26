@@ -119,3 +119,18 @@ export async function indsaetOpdigtetHistorik(db: Db, omr: "DK1" | "DK2", tilDat
     );
   }
 }
+
+/** Mange aktive tilmeldte på én gang (DK2, elpris-samtykke version 2). Hurtigere end indsaetTilmeldt i en løkke. */
+export async function indsaetMange(db: Db, antal: number, omraade: "DK1" | "DK2" = "DK2") {
+  await db.query(
+    `insert into tilmeldte (email, postnummer, omraade, status, test, bekraeftet_tidspunkt, elpris_aktiv)
+     select 'mange' || g || '@eksempel.dk', '2100', $2, 'aktiv', false, now(), true from generate_series(1, $1::int) g`,
+    [antal, omraade],
+  );
+  await db.query(
+    `insert into samtykker (tilmeldt_id, type, version, ordlyd, givet, bekraeftet, status)
+     select t.id, 'elpris', st.version, st.tekst, now(), now(), 'aktiv'
+     from tilmeldte t cross join samtykketekster st
+     where st.type = 'elpris' and st.version = 2 and t.email like 'mange%'`,
+  );
+}

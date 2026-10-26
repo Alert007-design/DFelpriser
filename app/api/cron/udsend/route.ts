@@ -7,7 +7,8 @@ import { udsend } from "@/lib/udsendelse";
 
 export const maxDuration = 300;
 
-// Kaldes hvert 5. minut 14.00–18.55 UTC; udsend() gør kun noget kl. 16.00–18.59 dansk tid (sommer og vinter).
+// Kaldes hvert minut 14.00–15.59 UTC og hvert 5. minut 16.00–18.55 UTC; udsend() gør kun noget kl. 16.00–18.59 dansk tid
+// (sommer og vinter) og sender højst 100 mails pr. kald.
 export async function GET(req: Request) {
   if (!erCron(req)) return new Response("Ikke tilladt", { status: 401 });
   const resultat = await udsend(hentDb(), resendAfsender(), { nu: new Date(), appUrl: appUrl(), kilde: valgKilde() });
