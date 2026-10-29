@@ -7,7 +7,9 @@ import { PORTION, type Afsender, type Mail } from "./mail/afsender";
 import { driftsbesked, elprisMail, type PrognoseDel } from "./mail/skabeloner";
 import { erFuldDag, opsummer, timeserie } from "./pris/dag";
 import { hentHistorik, hentOgGem, hentSlots } from "./pris/lager";
-import { OMRAADER, type Omraade } from "./pris/typer";
+import { OMRAADER, type Dagsopsummering, type Omraade } from "./pris/typer";
+import { typiskeTider, type TypiskeTider } from "./pris/reference";
+import type { Historik } from "./prognose/model";
 import { lavPrognose, maaVisePrognose, vurderBilligsteDag } from "./prognose/prognose";
 import { dagensGraenser, danskDato, foerUdsendelsesvindue, iUdsendelsesvindue, laegDage } from "./tid";
 import { afmeldToken, skiftToken, sletToken } from "./tokens";
@@ -178,8 +180,9 @@ export async function udsend(
 
     // Prognose: kun hvis modellen har bestået den tilbageskuende test. Fejl her må ikke stoppe mailen.
     let prognoseDel: PrognoseDel | null = null;
+    let historik: Historik | null = null;
     try {
-      const historik = await hentHistorik(db, omr, imorgen, 130);
+      historik = await hentHistorik(db, omr, imorgen, 130);
       const tilladelse = maaVisePrognose(historik, imorgen);
       if (tilladelse.tilladt) {
         const p = lavPrognose(historik, imorgen);
@@ -201,6 +204,19 @@ export async function udsend(
     } catch (fejl) {
       await driftslog(db, "fejl", "prognose", `Prognose for ${omr} fejlede: ${fejl instanceof Error ? fejl.message : String(fejl)}`);
       prognoseDel = null;
+    }
+
+    // Reference til de seneste dage og, uden prognose, de typiske tidsrum. Fejl her må heller ikke stoppe mailen.
+    const seneste: Dagsopsummering[] = [];
+    let typisk: TypiskeTider | null = null;
+    try {
+      for (const d of [laegDage(dato, -1), dato]) {
+        const s = await hentSlots(db, omr, d);
+        if (erFuldDag(d, s).fuld) seneste.push(opsummer(d, s));
+      }
+      if (!prognoseDel && historik) typisk = typiskeTider(historik, imorgen);
+    } catch (fejl) {
+      await driftslog(db, "fejl", "udsendelse", `Reference for ${omr} fejlede: ${fejl instanceof Error ? fejl.message : String(fejl)}`);
     }
 
     const [{ budskab }] = await db.query<{ budskab: string }>(
@@ -249,11 +265,12 @@ export async function udsend(
             dag,
             serie,
             prognose: prognoseDel,
+            seneste,
+            typisk,
             dfBudskab: m.har_politik && budskab.trim() ? budskab : undefined,
             links: {
               hjemmeside: appUrl,
               logo: `${appUrl}/mail/logo-lys.png`,
-              bolge: `${appUrl}/mail/bolge.png`,
               privatliv: `${appUrl}/privatlivspolitik`,
               stop: `${appUrl}/afmeld?token=${t(afmeldToken(m.id))}`,
               stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,

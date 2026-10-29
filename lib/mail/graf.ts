@@ -1,5 +1,4 @@
 import { danskKlokkeslaet } from "../tid";
-import { oere } from "../pris/format";
 import type { Periode } from "../pris/typer";
 
 export interface Soejle {
@@ -37,7 +36,7 @@ export function grafHtml(serie: Soejle[], billigste: Periode, dyreste: Periode, 
     })
     .join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed"><tr height="${HOEJDE}">${celler}</tr><tr>${timer}</tr></table>
-<div style="${font};font-size:12px;line-height:18px;color:#5a6788;padding-top:8px"><span style="color:${GROEN}">&#9632;</span> Billigste tre timer &nbsp; <span style="color:${ROED}">&#9632;</span> Dyreste tre timer &nbsp; Højeste time: ${oere(hi)} øre, laveste time: ${oere(Math.min(...v))} øre pr. kWh.</div>`;
+<div style="${font};font-size:12px;line-height:18px;color:#5a6788;padding-top:8px"><span style="color:${GROEN}">&#9632;</span> Billigst &nbsp; <span style="color:${ROED}">&#9632;</span> Dyrest</div>`;
 }
 
 /** Samme graf som søjler til hjemmesiden (SVG), ud fra de samme tal. */

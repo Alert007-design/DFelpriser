@@ -1,9 +1,9 @@
-import { besparelseKr } from "../pris/dag";
-import { kroner, oere, periodeTekst } from "../pris/format";
+import { periodeTekst } from "../pris/format";
+import { tidsrumTekst, type TypiskeTider } from "../pris/reference";
 import type { Dagsopsummering, Omraade } from "../pris/typer";
 import { omraadeNavn } from "../omraade";
 import type { DagsPrognose, Vurdering } from "../prognose/prognose";
-import { laesbarDato, stortFoerst } from "../tid";
+import { laegDage, laesbarDato, stortFoerst, ugedag } from "../tid";
 import type { Mail } from "./afsender";
 import { grafHtml, type Soejle } from "./graf";
 
@@ -33,7 +33,8 @@ export const PRAEMISSE_PROGNOSE =
 export interface MailLinks {
   hjemmeside: string;
   logo: string;
-  bolge: string;
+  /** Bruges ikke længere i dagsmailen. */
+  bolge?: string;
   privatliv: string;
   /** Stopper kun den daglige mail (siden /afmeld). Personen og samtykket bevares. */
   stop: string;
@@ -55,89 +56,104 @@ export interface MailIndhold {
   dag: Dagsopsummering;
   serie: Soejle[];
   prognose: PrognoseDel | null;
+  /** Kendte dage før morgendagen (i går og i dag), til sammenligning. Ufuldstændige dage er udeladt. */
+  seneste: Dagsopsummering[];
+  /** Hvornår strømmen i gennemsnit har været billig og dyr de seneste 14 dage. Vises kun uden prognose. */
+  typisk: TypiskeTider | null;
   /** Politisk tekst fra Dansk Folkeparti. Kun med, hvis modtagerens samtykke dækker politisk information. */
   dfBudskab?: string;
   links: MailLinks;
 }
 
-/** Hele timer uden minutter: "kl. 12 og 15". Bruges i rådet. */
-function klRaad(p: { start: Date; slut: Date }): string {
-  const t = periodeTekst(p).replace("Kl. ", "").split("–");
-  return `mellem kl. ${t[0]} og ${t[1]}`;
+/** Hele øre uden decimaler: "165", "−3". Mailen viser runde tal, så den er nem at læse på en telefon. */
+export function heleOere(v: number): string {
+  return String(Math.round(v)).replace("-", "−");
 }
 
-export const MINDSTE_FORSKEL_OERE = 5;
+/** "Lørdag" */
+const dagNavn = (dato: string) => stortFoerst(ugedag(dato));
+/** "Lørdag 24. oktober" */
+const dagOgDato = (dato: string) => stortFoerst(laesbarDato(dato).replace(" den ", " "));
 
-export function dagensRaad(dag: Dagsopsummering, ugedagTekst: string): string {
-  if (dag.forskel < MINDSTE_FORSKEL_OERE) {
-    return `Prisen er næsten den samme hele dagen ${ugedagTekst}. Det betaler sig kun lidt at flytte dit forbrug.`;
-  }
-  return `Hvis du skal oplade elbilen eller vaske tøj, kan det betale sig at gøre det ${ugedagTekst} ${klRaad(dag.billigste)}. Undgå om muligt ${klRaad(dag.dyreste)}.`;
+/** Den værste af to usikkerheder, så mailen aldrig lover mere end prognosen kan holde. */
+function usikkerhedTekst(dage: DagsPrognose[]): string {
+  const orden = ["lav", "middel", "hoej"] as const;
+  const vaerst = dage.reduce((v, p) => (orden.indexOf(p.usikkerhed) > orden.indexOf(v) ? p.usikkerhed : v), "lav" as DagsPrognose["usikkerhed"]);
+  return { lav: "lav", middel: "middel", hoej: "høj" }[vaerst];
 }
 
-function prognoseLinjer(p: DagsPrognose) {
-  const bil = `Kl. ${String(p.billigste.startTime).padStart(2, "0")}–${String(p.billigste.slutTime % 24 === 0 && p.billigste.slutTime > 0 ? 24 : p.billigste.slutTime).padStart(2, "0")}`;
-  const usikkerhed = { lav: "lav", middel: "middel", hoej: "høj" }[p.usikkerhed];
-  const forklaring = `I 8 ud af 10 af modellens seneste prognoser lå døgnets gennemsnitspris mellem ${oere(p.gennemsnitInterval.lav)} og ${oere(p.gennemsnitInterval.hoej)} øre/kWh. Enkelte timer kan afvige med op til ca. ${oere(p.timeAfvigelse)} øre.`;
-  return {
-    overskrift: `${laesbarDato(p.dato)}`,
-    billigste: bil,
-    gennemsnit: `${oere(p.gennemsnit)} øre/kWh`,
-    laveste: `${oere(p.laveste)} øre/kWh`,
-    hoeyeste: `${oere(p.hoeyeste)} øre/kWh`,
-    usikkerhed,
-    forklaring,
-  };
+function prognoseTidsrum(p: DagsPrognose): string {
+  const slut = p.billigste.slutTime % 24 === 0 && p.billigste.slutTime > 0 ? 24 : p.billigste.slutTime;
+  return `kl. ${p.billigste.startTime}–${slut}`;
 }
 
-export function vurderingTekst(v: Vurdering, kendtDato: string): string {
-  if (v.type === "billigst") {
-    return v.dato === kendtDato
-      ? `Af de tre dage er ${laesbarDato(v.dato)} den billigste, og forskellen er større end prognosens usikkerhed.`
-      : `Prognosen peger på ${laesbarDato(v.dato)} som den billigste af de tre dage, og forskellen er større end prognosens usikkerhed. Det er en forventning, ikke en kendt pris.`;
-  }
-  return "Det er for tæt til at udpege en billigste dag: forskellene mellem dagene er mindre end prognosens usikkerhed.";
+/** Én linje, kun når prognosen sikkert peger på én dag som billigst. */
+export function vurderingTekst(v: Vurdering, kendtDato: string): string | null {
+  if (v.type !== "billigst") return null;
+  return v.dato === kendtDato
+    ? `Af de tre dage bliver ${ugedag(v.dato)} den billigste.`
+    : `Af de tre dage ventes ${ugedag(v.dato)} at blive den billigste.`;
 }
+
+function typiskTekst(t: TypiskeTider, fed: (s: string) => string): string {
+  const billig = t.billigste.map((b) => fed(tidsrumTekst(b))).join(" og ");
+  return `De seneste ${t.dage} dage har strømmen i gennemsnit været billigst ${billig} og dyrest ${fed(tidsrumTekst(t.dyreste))}.`;
+}
+
+const INGEN_PROGNOSE = "Vi har ingen sikker prognose for de to dage i dag.";
+const KORT_FORBEHOLD = "Kun spotprisen før moms. Nettarif, elafgift, moms, abonnement og elselskabets tillæg er ikke regnet med.";
 
 const kort = (overskrift: string, linje1: string, linje2: string, farve: string) =>
-  `<td width="50%" valign="top" style="padding:0 4px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${FELT}" style="background-color:${FELT};border-top:4px solid ${farve};padding:12px 14px;${FONT}"><div style="font-size:12px;color:#5a6788;text-transform:uppercase;letter-spacing:1px">${overskrift}</div><div style="font-size:22px;line-height:28px;font-weight:bold;color:${BLAA};padding-top:4px">${linje1}</div><div style="font-size:13px;color:#33415f;padding-top:2px">${linje2}</div></td></tr></table></td>`;
+  `<td width="50%" valign="top" style="padding:0 4px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${FELT}" style="background-color:${FELT};border-top:4px solid ${farve};padding:10px 12px;${FONT}"><div style="font-size:11px;color:#5a6788;text-transform:uppercase;letter-spacing:1px">${overskrift}</div><div style="font-size:22px;line-height:28px;font-weight:bold;color:${BLAA};padding-top:2px">${linje1}</div><div style="font-size:14px;color:#33415f;padding-top:2px">${linje2}</div></td></tr></table></td>`;
 
-const maerke = (tekst: string, farve: string) =>
-  `<span style="${FONT};font-size:11px;font-weight:bold;letter-spacing:1px;color:#ffffff;background-color:${farve};padding:3px 8px;text-transform:uppercase">${tekst}</span>`;
+const etiket = (tekst: string, farve: string) =>
+  `<div style="${FONT};font-size:12px;line-height:16px;font-weight:bold;letter-spacing:1px;color:${farve};text-transform:uppercase;padding:0 0 6px 0">${tekst}</div>`;
 
 export function elprisMail(i: MailIndhold): Mail {
   const d = i.dag;
   const datoTekst = laesbarDato(d.dato);
-  const raad = dagensRaad(d, "i morgen");
-  const spar10 = besparelseKr(d, 10);
-  const omr = `${i.omraade} – ${omraadeNavn(i.omraade)}`;
+  const omrKort = omraadeNavn(i.omraade).split(" (")[0];
+  const dag2 = laegDage(d.dato, 1);
+  const dag3 = laegDage(d.dato, 2);
+  const weekendOverskrift = `${dagNavn(dag2)} og ${ugedag(dag3)}`;
+  const raekker = [...i.seneste.filter((x) => x.dato < d.dato), d];
 
-  const prognoseHtml = i.prognose
-    ? `<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:8px 28px 4px 28px;${FONT}">
-<div style="padding:0 0 8px 0">${maerke("Prognose", GUL)}</div>
-<div style="font-size:18px;line-height:24px;font-weight:bold;color:${BLAA}">De to følgende dage: forventede priser</div>
-<div style="font-size:13px;line-height:19px;color:${GUL};padding:6px 0 10px 0;font-weight:bold">Disse tal er en prognose, ikke offentliggjorte priser.</div>
-${i.prognose.dage
-  .map((p) => {
-    const l = prognoseLinjer(p);
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px 0"><tr><td width="4" bgcolor="${GUL}" style="background-color:${GUL};font-size:0;line-height:0">&nbsp;</td><td bgcolor="${FELT}" style="background-color:${FELT};padding:10px 14px;font-size:14px;line-height:21px;color:#33415f">
-<strong style="color:${BLAA}">${esc(stortFoerst(l.overskrift))} · prognose</strong><br>
-Forventet billigste periode: <strong>${l.billigste}</strong><br>
-Forventet gennemsnitspris: <strong>${l.gennemsnit}</strong><br>
-Forventet laveste og højeste timepris: <strong>${l.laveste}</strong> og <strong>${l.hoeyeste}</strong><br>
-Usikkerhed: <strong>${l.usikkerhed}</strong>. ${esc(l.forklaring)}
-</td></tr></table>`;
+  const tabelHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${FONT};font-size:14px;line-height:20px;color:${BLAA}">
+<tr><td style="font-size:12px;color:#5a6788"></td><td align="right" style="font-size:12px;color:#5a6788">Lavest</td><td align="right" style="font-size:12px;color:#5a6788">Højest</td><td align="right" style="font-size:12px;color:#5a6788;padding-right:6px">Gns.</td></tr>
+${raekker
+  .map((r) => {
+    const morgen = r.dato === d.dato;
+    const stil = morgen ? `font-weight:bold;background-color:#eef7f1` : "";
+    return `<tr><td bgcolor="${morgen ? "#eef7f1" : "#ffffff"}" style="padding:5px 6px;${stil}">${esc(dagNavn(r.dato))}</td><td align="right" style="padding:5px 0;${stil}">${heleOere(r.laveste)}</td><td align="right" style="padding:5px 0;${stil}">${heleOere(r.hoeyeste)}</td><td align="right" style="padding:5px 6px;${stil}">${heleOere(r.gennemsnit)}</td></tr>`;
   })
-  .join("")}
-<p style="margin:4px 0 12px 0;font-size:14px;line-height:21px;color:#33415f"><strong>Billigste dag:</strong> ${esc(vurderingTekst(i.prognose.vurdering, d.dato))}</p>
-</td></tr>`
-    : `<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:8px 28px 4px 28px;${FONT};font-size:14px;line-height:21px;color:#33415f">
-<div style="padding:0 0 8px 0">${maerke("Prognose", GUL)}</div>
-<p style="margin:0 0 12px 0">Vi viser ikke en prognose for de to følgende dage i dag. Datagrundlaget eller prognosemodellens træfsikkerhed er ikke god nok til, at vi vil give et bud.</p>
-</td></tr>`;
+  .join("\n")}
+</table>
+<div style="${FONT};font-size:12px;color:#6b7896;padding-top:4px">Øre pr. kWh, kun spotpris.</div>`;
+
+  let weekendHtml: string;
+  let weekendTekst: string;
+  if (i.prognose) {
+    const p = i.prognose;
+    const vurdering = vurderingTekst(p.vurdering, d.dato);
+    weekendHtml = `${etiket(`${esc(weekendOverskrift)} · prognose`, GUL)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${FONT};font-size:14px;line-height:20px;color:${BLAA}">
+${p.dage.map((x) => `<tr><td style="padding:3px 0">${esc(dagNavn(x.dato))}</td><td style="padding:3px 0">billigst ca. <strong>${prognoseTidsrum(x)}</strong></td><td align="right" style="padding:3px 0">ca. ${heleOere(x.gennemsnit)} øre</td></tr>`).join("\n")}
+</table>
+${vurdering ? `<div style="padding-top:6px">${esc(vurdering)}</div>` : ""}
+<div style="font-size:12px;line-height:17px;color:#6b7896;padding-top:6px">Et bud, ikke kendte priser. Beløbet er døgnets gennemsnit. Usikkerhed: ${usikkerhedTekst(p.dage)}.</div>`;
+    weekendTekst = `${weekendOverskrift.toUpperCase()} - PROGNOSE (et bud, ikke kendte priser)
+${p.dage.map((x) => `${dagOgDato(x.dato)}: billigst ca. ${prognoseTidsrum(x)}, gennemsnit ca. ${heleOere(x.gennemsnit)} øre`).join("\n")}
+${vurdering ? `${vurdering}\n` : ""}Usikkerhed: ${usikkerhedTekst(p.dage)}.`;
+  } else {
+    weekendHtml = `${etiket(esc(weekendOverskrift), GUL)}
+<div>${esc(INGEN_PROGNOSE)}</div>
+${i.typisk ? `<div style="padding-top:6px">${typiskTekst(i.typisk, (s) => `<strong>${esc(s)}</strong>`)}</div>` : ""}`;
+    weekendTekst = `${weekendOverskrift.toUpperCase()}
+${INGEN_PROGNOSE}${i.typisk ? `\n${typiskTekst(i.typisk, (s) => s)}` : ""}`;
+  }
 
   const budskabHtml = i.dfBudskab?.trim()
-    ? `<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:8px 28px 12px 28px;${FONT};font-size:14px;line-height:21px;color:#33415f">
+    ? `<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:0 24px 14px 24px;${FONT};font-size:14px;line-height:21px;color:#33415f">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="${ROED}" style="background-color:${ROED};font-size:0;line-height:0">&nbsp;</td><td bgcolor="${FELT}" style="background-color:${FELT};padding:12px 14px">
 <div style="font-size:12px;color:#5a6788;text-transform:uppercase;letter-spacing:1px;padding-bottom:4px">Fra Dansk Folkeparti</div>
 ${esc(i.dfBudskab).replace(/\n/g, "<br>")}
@@ -152,45 +168,42 @@ ${esc(i.dfBudskab).replace(/\n/g, "<br>")}
 <meta name="color-scheme" content="light only">
 <title>DF-Elpriser</title>
 <style>
-@media only screen and (max-width:620px){ .fuld{width:100% !important} .pad{padding-left:16px !important;padding-right:16px !important} .kort td{display:block !important;width:100% !important;padding:0 0 8px 0 !important} }
+@media only screen and (max-width:620px){ .fuld{width:100% !important} .pad{padding-left:16px !important;padding-right:16px !important} }
 </style>
 </head>
 <body style="margin:0;padding:0;background-color:${FELT}" bgcolor="${FELT}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${FELT}" style="background-color:${FELT}"><tr><td align="center" style="padding:16px 8px">
 <table role="presentation" class="fuld" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px">
-<tr><td bgcolor="${LYSEBLAA}" class="pad" style="background-color:${LYSEBLAA};padding:22px 28px 6px 28px"><img src="${esc(i.links.logo)}" width="72" height="72" alt="Dansk Folkeparti" border="0" style="display:block;width:72px;height:72px;border:0"></td></tr>
-<tr><td bgcolor="${LYSEBLAA}" class="pad" style="background-color:${LYSEBLAA};padding:14px 28px 24px 28px">
-<div style="${FONT};font-size:28px;line-height:34px;font-weight:bold;color:${MOERKEBLAA};text-transform:uppercase">DF-Elpriser</div>
-<div style="${FONT};font-size:16px;line-height:22px;color:${MOERKEBLAA};padding-top:4px">Din strøm de næste tre dage</div>
-</td></tr>
+<tr><td bgcolor="${LYSEBLAA}" class="pad" style="background-color:${LYSEBLAA};padding:16px 24px">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle" style="padding-right:12px"><img src="${esc(i.links.logo)}" width="48" height="48" alt="Dansk Folkeparti" border="0" style="display:block;width:48px;height:48px;border:0"></td>
+<td valign="middle" style="${FONT};color:${MOERKEBLAA}"><div style="font-size:22px;line-height:26px;font-weight:bold;text-transform:uppercase">DF-Elpriser</div><div style="font-size:14px;line-height:18px">${esc(omrKort)} · ${esc(i.postnummer)}</div></td>
+</tr></table></td></tr>
 <tr><td bgcolor="${MOERKEBLAA}" height="4" style="background-color:${MOERKEBLAA};font-size:0;line-height:0">&nbsp;</td></tr>
-<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:18px 28px 6px 28px;${FONT};font-size:14px;line-height:21px;color:#33415f">
-<p style="margin:0 0 12px 0;font-weight:bold;color:${BLAA}">${esc(PRAEMISSE_PROGNOSE)}</p>
-<div style="padding:0 0 8px 0">${maerke("Kendte priser", GROEN)}</div>
-<div style="font-size:20px;line-height:26px;font-weight:bold;color:${BLAA};">${esc(stortFoerst(datoTekst))}</div>
-<div style="font-size:13px;color:#5a6788;padding:2px 0 12px 0">Elprisområde ${esc(omr)} · postnummer ${esc(i.postnummer)}</div>
-<table role="presentation" class="kort" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-${kort("Billigste periode", esc(periodeTekst(d.billigste)), `${oere(d.billigste.gennemsnit)} øre/kWh i gennemsnit`, GROEN)}
-${kort("Dyreste periode", esc(periodeTekst(d.dyreste)), `${oere(d.dyreste.gennemsnit)} øre/kWh i gennemsnit`, ROED)}
+<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:18px 24px 8px 24px;${FONT}">
+${etiket(`I morgen · ${esc(datoTekst.replace(" den ", " "))}`, GROEN)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 -4px"><tr>
+${kort("Billigst", esc(periodeTekst(d.billigste).replace("Kl. ", "")), `${heleOere(d.billigste.gennemsnit)} øre/kWh`, GROEN)}
+${kort("Dyrest", esc(periodeTekst(d.dyreste).replace("Kl. ", "")), `${heleOere(d.dyreste.gennemsnit)} øre/kWh`, ROED)}
 </tr></table>
-<p style="margin:14px 0 4px 0">Gennemsnitspris for døgnet: <strong>${oere(d.gennemsnit)} øre/kWh</strong>.<br>
-Forskel mellem dyreste og billigste periode: <strong>${oere(d.forskel)} øre/kWh</strong>.</p>
-<p style="margin:10px 0 14px 0">Flytter du 10 kWh forbrug fra den dyreste til den billigste periode, er prisforskellen <strong>${kroner(spar10)} kr.</strong> Her er kun spotprisen regnet med, så det er et regneeksempel og ikke en garanti for, hvad din elregning bliver mindre.</p>
 </td></tr>
-<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:0 28px 14px 28px">${grafHtml(i.serie, d.billigste, d.dyreste, FONT)}</td></tr>
-<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:0 28px 12px 28px;${FONT};font-size:15px;line-height:22px;color:${BLAA}">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${LYSEBLAA}" style="background-color:${LYSEBLAA};padding:12px 14px"><strong>Dagens råd</strong><br>»${esc(raad)}«</td></tr></table>
+<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:6px 24px 14px 24px">${grafHtml(i.serie, d.billigste, d.dyreste, FONT)}</td></tr>
+<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:4px 24px 14px 24px">
+${etiket("Sammenlignet med de seneste dage", "#5a6788")}
+${tabelHtml}
 </td></tr>
-${prognoseHtml}
+<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:0 24px 14px 24px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td width="4" bgcolor="${GUL}" style="background-color:${GUL};font-size:0;line-height:0">&nbsp;</td><td bgcolor="#fff8ec" style="background-color:#fff8ec;padding:12px 14px;${FONT};font-size:14px;line-height:21px;color:${BLAA}">
+${weekendHtml}
+</td></tr></table>
+</td></tr>
 ${budskabHtml}
-<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:4px 28px 18px 28px;${FONT};font-size:12px;line-height:18px;color:#5a6788">
-<strong>Det er ikke regnet med.</strong> ${esc(IKKE_MEDREGNET)}<br><br>
-Kilde: ${esc(KILDE_TEKST)}. Alle priser er øre pr. kWh. Priserne følger markedets 15-minutters-intervaller.
+<tr><td bgcolor="#ffffff" class="pad" style="background-color:#ffffff;padding:0 24px 18px 24px;${FONT};font-size:12px;line-height:18px;color:#6b7896">
+${esc(KORT_FORBEHOLD)} Kilde: Energinet.
 </td></tr>
-<tr><td style="font-size:0;line-height:0" bgcolor="#ffffff"><img src="${esc(i.links.bolge)}" width="600" height="60" alt="" border="0" style="display:block;width:100%;max-width:600px;height:auto;border:0"></td></tr>
-<tr><td bgcolor="${BLAA}" class="pad" style="background-color:${BLAA};padding:14px 28px 28px 28px;${FONT};font-size:12px;line-height:19px;color:#c9d2e3">
+<tr><td bgcolor="${BLAA}" class="pad" style="background-color:${BLAA};padding:14px 24px 24px 24px;${FONT};font-size:12px;line-height:19px;color:#c9d2e3">
 DF-Elpriser er en gratis service fra Dansk Folkeparti. Du får mailen, fordi du har tilmeldt dig og bekræftet det.<br>
-<a href="${esc(i.links.hjemmeside)}" style="color:#ffffff;text-decoration:underline">Se priser og prognoser på hjemmesiden</a> ·
+<a href="${esc(i.links.hjemmeside)}" style="color:#ffffff;text-decoration:underline">Hjemmeside</a> ·
 <a href="${esc(i.links.skiftPostnummer)}" style="color:#ffffff;text-decoration:underline">Skift postnummer</a> ·
 <a href="${esc(i.links.privatliv)}" style="color:#ffffff;text-decoration:underline">Privatlivspolitik</a>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:16px 0 14px 0"><tr><td bgcolor="#ffffff" style="background-color:#ffffff;border-radius:4px"><a href="${esc(i.links.stop)}" style="display:inline-block;${FONT};font-size:14px;font-weight:bold;color:${BLAA};text-decoration:none;padding:12px 20px">STOP modtagelse af dette nyhedsbrev</a></td></tr></table>
@@ -200,48 +213,19 @@ DF-Elpriser er en gratis service fra Dansk Folkeparti. Du får mailen, fordi du 
 </td></tr></table>
 </body></html>`;
 
-  const tekstTimer = i.serie
-    .filter((_, n) => n % 3 === 0)
-    .map((s) => `${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(s.start)}: ${oere(s.oerePrKwh)}`)
-    .join("\n");
-  const prognoseTekst = i.prognose
-    ? `PROGNOSE FOR DE TO FØLGENDE DAGE (ikke offentliggjorte priser)
-${i.prognose.dage
-  .map((p) => {
-    const l = prognoseLinjer(p);
-    return `${l.overskrift} - prognose
-Forventet billigste periode: ${l.billigste}
-Forventet gennemsnitspris: ${l.gennemsnit}
-Forventet laveste og højeste timepris: ${l.laveste} og ${l.hoeyeste}
-Usikkerhed: ${l.usikkerhed}. ${l.forklaring}`;
-  })
-  .join("\n\n")}
+  const text = `DF-ELPRISER
+Elprisområde ${i.omraade} (${omrKort}), postnummer ${i.postnummer}
 
-Billigste dag: ${vurderingTekst(i.prognose.vurdering, d.dato)}`
-    : "Vi viser ikke en prognose for de to følgende dage i dag, fordi datagrundlaget eller modellens træfsikkerhed ikke er god nok.";
+I MORGEN: ${datoTekst}
+Billigst: ${periodeTekst(d.billigste)} (${heleOere(d.billigste.gennemsnit)} øre/kWh)
+Dyrest: ${periodeTekst(d.dyreste)} (${heleOere(d.dyreste.gennemsnit)} øre/kWh)
 
-  const text = `DF-ELPRISER - DIN STRØM DE NÆSTE TRE DAGE
-${PRAEMISSE_PROGNOSE}
+SAMMENLIGNET MED DE SENESTE DAGE (øre pr. kWh, kun spotpris)
+${raekker.map((r) => `${dagNavn(r.dato)}: lavest ${heleOere(r.laveste)}, højest ${heleOere(r.hoeyeste)}, gennemsnit ${heleOere(r.gennemsnit)}`).join("\n")}
 
-KENDTE PRISER: ${datoTekst}
-Elprisområde ${omr}, postnummer ${i.postnummer}
-Billigste periode: ${periodeTekst(d.billigste)} (${oere(d.billigste.gennemsnit)} øre/kWh)
-Dyreste periode: ${periodeTekst(d.dyreste)} (${oere(d.dyreste.gennemsnit)} øre/kWh)
-Gennemsnitspris: ${oere(d.gennemsnit)} øre/kWh
-Forskel mellem dyreste og billigste: ${oere(d.forskel)} øre/kWh
-Flytter du 10 kWh fra den dyreste til den billigste periode, er prisforskellen ${kroner(spar10)} kr. (kun spotpris, regneeksempel).
-
-Pris pr. 3. time (øre/kWh):
-${tekstTimer}
-
-DAGENS RÅD
-»${raad}«
-
-${prognoseTekst}
+${weekendTekst}
 ${i.dfBudskab?.trim() ? `\nFRA DANSK FOLKEPARTI\n${i.dfBudskab}\n` : ""}
-DET ER IKKE REGNET MED
-${IKKE_MEDREGNET}
-Kilde: ${KILDE_TEKST}.
+${KORT_FORBEHOLD} Kilde: ${KILDE_TEKST}.
 
 DF-Elpriser er en gratis service fra Dansk Folkeparti.
 Hjemmeside: ${i.links.hjemmeside}

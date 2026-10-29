@@ -58,6 +58,18 @@ describe("udsendelse kl. 16", () => {
     expect(vest.text).toContain("DK1");
     expect(oest.text).toContain("DK2");
     expect(vest.text).not.toBe(oest.text);
+    // Den korte udgave: reference til de seneste dage, intet råd og intet regneeksempel, men stadig forbeholdet.
+    expect(oest.html).toContain("Sammenlignet med de seneste dage");
+    expect(oest.text).toContain("SAMMENLIGNET MED DE SENESTE DAGE");
+    expect(oest.text).toMatch(/Fredag: lavest [\d,−]+, højest [\d,−]+, gennemsnit [\d,−]+/);
+    expect(oest.text).toMatch(/Lørdag: lavest [\d,−]+, højest [\d,−]+, gennemsnit [\d,−]+/);
+    for (const m of [vest, oest]) {
+      expect(m.html).not.toContain("Dagens råd");
+      expect(m.html).not.toContain("10 kWh");
+      expect(m.html).not.toContain("Morgendagens priser er offentliggjorte");
+      expect(m.html).toContain("er ikke regnet med");
+      expect(m.text).toContain("er ikke regnet med");
+    }
     expect(vest.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
 
     // anden kørsel samme dag: ingen dobbeltudsendelse
@@ -246,10 +258,30 @@ describe("udsendelse kl. 16", () => {
     await indsaetTilmeldt(db, { email: "a@eksempel.dk" });
     const af = falskAfsender();
     await udsend(db, af, { nu: KL16, appUrl: APP, kilde: livelignende({ udgiv: () => true }) });
-    expect(af.sendte[0].html).toContain("Vi viser ikke en prognose");
-    expect(af.sendte[0].html).not.toContain("Forventet billigste periode");
+    expect(af.sendte[0].html).toContain("Vi har ingen sikker prognose for de to dage i dag.");
+    expect(af.sendte[0].html).toContain("Søndag og mandag");
+    expect(af.sendte[0].html).not.toContain("Et bud, ikke kendte priser");
+    // Kun to dages priser i databasen: for lidt til at sige noget om de seneste 14 dage.
+    expect(af.sendte[0].html).not.toContain("har strømmen i gennemsnit");
     const [u] = await db.query<{ prognose: boolean }>(`select prognose from udsendelser where omraade = 'DK2'`);
     expect(u.prognose).toBe(false);
+  });
+
+  it("viser de typiske billige og dyre tidsrum, når prognosen ikke er god nok, men der er priser nok", async () => {
+    const { indsaetOpdigtetHistorik } = await import("./hjaelp");
+    // 10 dage: for lidt til prognosen (kræver 45), nok til de typiske tidsrum (kræver 7).
+    await indsaetOpdigtetHistorik(db, "DK2", "2026-10-24", 10, "energidataservice:DayAheadPrices");
+    await indsaetOpdigtetHistorik(db, "DK1", "2026-10-24", 10, "energidataservice:DayAheadPrices");
+    await indsaetTilmeldt(db, { email: "a@eksempel.dk" });
+    const af = falskAfsender();
+    const kilde: Priskilde = { navn: "energidataservice:DayAheadPrices", hent: async () => ({ DK1: [], DK2: [] }) };
+    const r = await udsend(db, af, { nu: KL16, appUrl: APP, kilde });
+    expect(r.omraader.DK2).toMatchObject({ status: "faerdig", sendt: 1, prognose: false });
+    const m = af.sendte[0];
+    expect(m.html).toContain("Vi har ingen sikker prognose for de to dage i dag.");
+    expect(m.html).toMatch(/De seneste \d+ dage har strømmen i gennemsnit været billigst <strong>kl\. \d+–\d+<\/strong>/);
+    expect(m.text).toMatch(/De seneste \d+ dage har strømmen i gennemsnit været billigst kl\. \d+–\d+/);
+    expect(m.text).toContain("Torsdag: lavest");
   });
 });
 
@@ -402,13 +434,14 @@ describe("prognose i nyhedsbrevet", () => {
     const r = await udsend(db, af, { nu: KL16, appUrl: APP, kilde });
     expect(r.omraader.DK2).toMatchObject({ status: "faerdig", sendt: 1, prognose: true });
     const mail = af.sendte[0];
-    expect(mail.html).toContain("Disse tal er en prognose, ikke offentliggjorte priser.");
-    expect(mail.html).toContain("Forventet billigste periode");
-    expect(mail.html).toContain("Usikkerhed:");
-    expect(mail.html).toContain("Morgendagens priser er offentliggjorte og kendte.");
-    expect(mail.text).toContain("PROGNOSE FOR DE TO FØLGENDE DAGE (ikke offentliggjorte priser)");
-    expect(mail.text).toContain("søndag den 25. oktober - prognose");
-    expect(mail.text).toContain("mandag den 26. oktober - prognose");
+    expect(mail.html).toContain("Søndag og mandag · prognose");
+    expect(mail.html).toContain("Et bud, ikke kendte priser.");
+    expect(mail.html).toMatch(/Usikkerhed: (lav|middel|høj)/);
+    expect(mail.html).not.toContain("Vi har ingen sikker prognose");
+    expect(mail.html).not.toContain("har strømmen i gennemsnit");
+    expect(mail.text).toContain("SØNDAG OG MANDAG - PROGNOSE (et bud, ikke kendte priser)");
+    expect(mail.text).toMatch(/Søndag 25\. oktober: billigst ca\. kl\. \d+–\d+, gennemsnit ca\. \d+ øre/);
+    expect(mail.text).toMatch(/Mandag 26\. oktober: billigst ca\. kl\. \d+–\d+, gennemsnit ca\. \d+ øre/);
     const gemte = await db.query<{ for_dato: string }>(`select for_dato::text from prognoser where omraade = 'DK2' order by for_dato`);
     expect(gemte.map((g) => g.for_dato)).toEqual(["2026-10-25", "2026-10-26"]);
   });
