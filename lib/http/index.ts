@@ -33,9 +33,9 @@ export async function laesFelter(req: Request): Promise<Record<string, unknown>>
 export function klientIp(req: Request): string {
   const noegle = (process.env.PROXY_NOEGLE ?? "").trim();
   const sendt = req.headers.get("x-df-proxy-noegle") ?? "";
-  const viaDfpriser = req.headers.get("x-df-klient-ip")?.trim();
-  if (noegle && viaDfpriser && sendt.length === noegle.length && timingSafeEqual(Buffer.from(sendt), Buffer.from(noegle))) {
-    return viaDfpriser;
+  const fraProxy = req.headers.get("x-df-klient-ip")?.trim();
+  if (noegle && fraProxy && sendt.length === noegle.length && timingSafeEqual(Buffer.from(sendt), Buffer.from(noegle))) {
+    return fraProxy;
   }
   return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "ukendt";
 }
