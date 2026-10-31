@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
 
@@ -94,7 +95,7 @@ export default function Privatlivspolitik() {
           </li>
         </ul>
         <p>
-          Har du stoppet e-mailen og vil have den igen, kan du tilmelde dig på ny på forsiden. Du skal så bekræfte via en
+          Har du stoppet e-mailen og vil have den igen, kan du tilmelde dig på ny på <Link href="/">dfpriser.dk/el</Link>. Du skal så bekræfte via en
           mail, vi sender til dig.
         </p>
         <p>
