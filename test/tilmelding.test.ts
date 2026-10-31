@@ -253,7 +253,7 @@ describe("stop af den daglige mail, sletning og skift af postnummer", () => {
     expect(await db.query(`select 1 from samtykker`)).toHaveLength(1);
   });
 
-  it("DF-priser og DF-Elpriser deler intet: ingen kode læser DF-priser", async () => {
+  it("DF-priser og DF-Elpriser deler intet: ingen kode læser DF-priser (domænet dfpriser.dk må nævnes, siden ligger under dfpriser.dk/el)", async () => {
     const { readdirSync, readFileSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
     const gennemgaa = (mappe: string): string[] =>
@@ -264,7 +264,7 @@ describe("stop af den daglige mail, sletning og skift af postnummer", () => {
       });
     for (const mappe of ["lib", "app", "supabase"]) {
       for (const fil of gennemgaa(join(process.cwd(), mappe))) {
-        expect(readFileSync(fil, "utf8"), fil).not.toMatch(/dfpriser|prismail_aktiv|dagens billigste tank/i);
+        expect(readFileSync(fil, "utf8"), fil).not.toMatch(/dfpriser(?!\.dk)|prismail_aktiv|dagens billigste tank/i);
       }
     }
   });

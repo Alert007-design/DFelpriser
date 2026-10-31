@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { laesSletToken } from "@/lib/tokens";
+import { sti } from "@/lib/sti";
 
 // Siden hører ikke hjemme i søgeresultater (indeholder personlige links).
 export const metadata: Metadata = { robots: { index: false } };
@@ -37,7 +38,7 @@ export default async function Slet({ searchParams }: { searchParams: Promise<{ t
         <h2>Slet alle mine oplysninger</h2>
         <p>Her sletter du alt, hvad DF-Elpriser har om dig: din e-mailadresse, dit postnummer, dit samtykke og registreringen af sendte mails. Dit samtykke er dermed trukket tilbage, og Dansk Folkeparti sender dig ikke mere fra denne tjeneste.</p>
         <p>Vil du kun slippe for den daglige mail, men stadig modtage relevant politisk information, skal du i stedet bruge knappen »STOP modtagelse af dette nyhedsbrev« i mailen.</p>
-        <form method="post" action="/api/slet">
+        <form method="post" action={sti("/api/slet")}>
           <input type="hidden" name="token" value={token} />
           <button className="knap fare" type="submit">Ja, slet alle mine oplysninger</button>
         </form>

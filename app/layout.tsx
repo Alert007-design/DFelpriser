@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { erOffentlig } from "@/lib/config";
 import "./globals.css";
+import { sti } from "@/lib/sti";
 
 const BESKRIVELSE =
   "Se hver dag, hvornår strømmen er billigst i morgen, og få en prognose for de to følgende dage. En gratis service fra Dansk Folkeparti.";
@@ -22,7 +23,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <header className="top">
           <div className="top-indhold">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="logo" src="/mail/logo-lys.png" width={64} height={64} alt="Dansk Folkeparti" />
+            <img className="logo" src={sti("/mail/df-logo.png")} width={64} height={64} alt="Dansk Folkeparti" />
             <div>
               <h1>DF-Elpriser</h1>
               <p>En gratis service fra Dansk Folkeparti</p>
@@ -32,8 +33,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {children}
         <footer className="bund">
           <p>
-            Afsender og dataansvarlig: Dansk Folkeparti. <a href="/privatlivspolitik">Privatlivspolitik</a> ·{" "}
-            <a href="/om-priserne">Om priserne og prognosen</a> · <a href="mailto:df@df.dk">df@df.dk</a>
+            Afsender og dataansvarlig: Dansk Folkeparti. <a href={sti("/privatlivspolitik")}>Privatlivspolitik</a> ·{" "}
+            <a href={sti("/om-priserne")}>Om priserne og prognosen</a> · <a href="mailto:df@df.dk">df@df.dk</a>
           </p>
         </footer>
       </body>

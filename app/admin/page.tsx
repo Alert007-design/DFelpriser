@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { hentDb } from "@/lib/db";
 import { ADMIN_COOKIE, adminOversigt, erAdminCookie } from "@/lib/admin";
 import { oere } from "@/lib/pris/format";
+import { sti } from "@/lib/sti";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Administration – DF-Elpriser", robots: { index: false, follow: false } };
@@ -17,7 +18,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
       <main className="side">
         <div className="rude">
           <h2>Administration</h2>
-          <form method="post" action="/api/admin/login">
+          <form method="post" action={sti("/api/admin/login")}>
             <div className="felt" style={{ maxWidth: 300 }}>
               <label htmlFor="kode">Adgangskode</label>
               <input id="kode" name="kode" type="password" required autoComplete="current-password" />
@@ -34,7 +35,7 @@ export default async function Admin({ searchParams }: { searchParams: Promise<{ 
   return (
     <main>
       <div className="rude">
-        <form method="post" action="/api/admin/logout" style={{ float: "right" }}>
+        <form method="post" action={sti("/api/admin/logout")} style={{ float: "right" }}>
           <button className="knap sekundaer" style={{ marginTop: 0 }} type="submit">Log ud</button>
         </form>
         <h2>Abonnenter</h2>

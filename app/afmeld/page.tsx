@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { laesAfmeldToken, sletToken } from "@/lib/tokens";
+import { sti } from "@/lib/sti";
 
 // Siden hører ikke hjemme i søgeresultater (indeholder personlige links).
 export const metadata: Metadata = { robots: { index: false } };
@@ -40,7 +41,7 @@ export default async function Afmeld({ searchParams }: { searchParams: Promise<{
       <div className="rude">
         <h2>Stop den daglige mail fra DF-Elpriser</h2>
         <p>Når du stopper, får du ikke flere daglige mails med elpriser. Dine oplysninger og dit samtykke bliver gemt, så Dansk Folkeparti fortsat kan sende dig relevant politisk information.</p>
-        <form method="post" action="/api/afmeld">
+        <form method="post" action={sti("/api/afmeld")}>
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="fra_side" value="1" />
           <button className="knap" type="submit">Stop den daglige mail</button>
