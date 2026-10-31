@@ -118,7 +118,7 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
           <input id="samtykke" name="samtykke" type="checkbox" value="ja" required defaultChecked={false} />
           <label htmlFor="samtykke" data-samtykke-version={samtykke.version}>
             {elpris.foer}
-            <a href={PRIVATLIVSPOLITIK_STI} target="_blank" rel="noopener">
+            <a href={sti(PRIVATLIVSPOLITIK_STI)} target="_blank" rel="noopener">
               {elpris.link}
             </a>
             {elpris.efter}

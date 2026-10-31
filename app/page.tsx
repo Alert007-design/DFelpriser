@@ -66,7 +66,7 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
         </p>
         <nav className="faner" aria-label="Vælg elprisområde">
           {OMRAADER.map((o) => (
-            <a key={o} className="fane" href={`/?omraade=${o}`} aria-current={o === valgt}>
+            <a key={o} className="fane" href={`${sti("/")}?omraade=${o}`} aria-current={o === valgt}>
               {o} – {omraadeNavn(o)}
             </a>
           ))}

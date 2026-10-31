@@ -21,6 +21,8 @@ describe("elpris-siden under /el (dfpriser.dk/el)", () => {
       // <Link href="/..."> får selv /el foran og er derfor tilladt.
       expect(s, f).not.toMatch(/(?<!Link )(href|action|src)="\/(?!\/)/);
       expect(s, f).not.toMatch(/fetch\("\//);
+      expect(s, f).not.toMatch(/(?<!Link )href=\{`\//);
+      expect(s, f).not.toMatch(/href=\{PRIVATLIVSPOLITIK_STI\}/);
     }
   });
   it("cron-adresserne og omskrivningen af gamle adresser står i vercel.json", () => {
