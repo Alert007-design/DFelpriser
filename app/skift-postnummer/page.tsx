@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { sti } from "@/lib/sti";
 
 export const metadata: Metadata = { robots: { index: false } };
 
@@ -28,7 +29,7 @@ export default async function SkiftPostnummer({ searchParams }: { searchParams: 
     <main className="side">
       <div className="rude">
         <h2>Skift postnummer</h2>
-        <form method="post" action="/api/skift-postnummer">
+        <form method="post" action={sti("/api/skift-postnummer")}>
           <input type="hidden" name="token" value={token} />
           <div className="felt" style={{ maxWidth: 200 }}>
             <label htmlFor="postnummer">Nyt postnummer</label>

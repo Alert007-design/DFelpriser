@@ -10,6 +10,7 @@ import { tekstHash } from "@/lib/samtykke-bevis";
 import { laesbarDato, stortFoerst } from "@/lib/tid";
 import { Prisgraf } from "./graf";
 import { Tilmeldingsformular } from "./tilmeldingsformular";
+import { sti } from "@/lib/sti";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +66,12 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
         </p>
         <nav className="faner" aria-label="Vælg elprisområde">
           {OMRAADER.map((o) => (
-            <a key={o} className="fane" href={`/?omraade=${o}`} aria-current={o === valgt}>
+            <a key={o} className="fane" href={`${sti("/")}?omraade=${o}`} aria-current={o === valgt}>
               {o} – {omraadeNavn(o)}
             </a>
           ))}
         </nav>
-        <form method="get" action="/" className="felt" style={{ maxWidth: 320 }}>
+        <form method="get" action={sti("/")} className="felt" style={{ maxWidth: 320 }}>
           <label htmlFor="pn">Find dit område med postnummer</label>
           <div style={{ display: "flex", gap: 8 }}>
             <input id="pn" name="postnummer" inputMode="numeric" pattern="\d{4}" maxLength={4} defaultValue={sp.postnummer ?? ""} />
@@ -117,7 +118,7 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
         <br />
         {IKKE_MEDREGNET}
         <br />
-        Kilde: {KILDE_TEKST}. Se <a href="/om-priserne">hvordan priserne og prognosen beregnes</a>.
+        Kilde: {KILDE_TEKST}. Se <a href={sti("/om-priserne")}>hvordan priserne og prognosen beregnes</a>.
       </p>
 
       <Tilmeldingsformular samtykke={samtykke} aaben={juraGodkendt()} />

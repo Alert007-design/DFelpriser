@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { sti } from "@/lib/sti";
 
 export const metadata: Metadata = { robots: { index: false } };
 
@@ -31,7 +32,7 @@ export default async function Bekraeft({ searchParams }: { searchParams: Promise
     <main className="side">
       <div className="rude">
         <h2>Bekræft din tilmelding</h2>
-        <form method="post" action="/api/bekraeft">
+        <form method="post" action={sti("/api/bekraeft")}>
           <input type="hidden" name="token" value={token} />
           <button className="knap" type="submit">Ja, bekræft min tilmelding</button>
         </form>

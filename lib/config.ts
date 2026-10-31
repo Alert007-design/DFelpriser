@@ -1,3 +1,4 @@
+import { BASE_STI } from "./sti";
 /** Indstillinger læses ved hvert kald, så de kan ændres i Vercel uden kodeændring. */
 
 function env(navn: string): string {
@@ -35,8 +36,9 @@ export function tilladteOrigins(): string[] {
     .filter(Boolean);
 }
 
+/** Domænet (APP_URL) plus /el, fx "https://dfpriser.dk/el". Bruges til alle links i mails og omdirigeringer. */
 export function appUrl(): string {
-  return kraev("APP_URL").replace(/\/$/, "");
+  return kraev("APP_URL").replace(/\/$/, "") + BASE_STI;
 }
 
 export function priskilde(): "test" | "live" {

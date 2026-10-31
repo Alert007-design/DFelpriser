@@ -25,7 +25,18 @@ export async function laesFelter(req: Request): Promise<Record<string, unknown>>
   return {};
 }
 
+/**
+ * Besøgendes IP til ratebegrænsning. Når siden vises gennem dfpriser.dk/el, kommer alle kald fra
+ * dfpriser.dk's servere; derfor sender dfpriser.dk den rigtige IP med i x-df-klient-ip sammen med en fælles
+ * nøgle (PROXY_NOEGLE i begge Vercel-projekter). Uden korrekt nøgle bruges x-forwarded-for som hidtil.
+ */
 export function klientIp(req: Request): string {
+  const noegle = (process.env.PROXY_NOEGLE ?? "").trim();
+  const sendt = req.headers.get("x-df-proxy-noegle") ?? "";
+  const fraProxy = req.headers.get("x-df-klient-ip")?.trim();
+  if (noegle && fraProxy && sendt.length === noegle.length && timingSafeEqual(Buffer.from(sendt), Buffer.from(noegle))) {
+    return fraProxy;
+  }
   return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "ukendt";
 }
 

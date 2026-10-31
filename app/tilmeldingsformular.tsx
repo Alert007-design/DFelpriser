@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { omraadeForPostnummer, omraadeNavn } from "@/lib/omraade";
 import { delOmkringLink, PRIVATLIVSPOLITIK_STI, type Samtykketekst } from "@/lib/samtykke";
+import { sti } from "@/lib/sti";
 
 type Felt = "email" | "postnummer" | "samtykke";
 export type VistSamtykke = Samtykketekst & { hash: string };
@@ -30,7 +31,7 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
     setFejl({});
     setBesked(null);
     try {
-      const svar = await fetch("/api/tilmeld", {
+      const svar = await fetch(sti("/api/tilmeld"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -74,7 +75,7 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
           <strong>Tilmeldingen er ikke åbnet endnu.</strong> Formularen kan ses, men kun testadresser kan tilmeldes.
         </p>
       )}
-      <form method="post" action="/api/tilmeld" onSubmit={indsend}>
+      <form method="post" action={sti("/api/tilmeld")} onSubmit={indsend}>
         <input type="hidden" name="samtykke_version" value={samtykke.version} />
         <input type="hidden" name="samtykke_hash" value={samtykke.hash} />
         <div className="felter">
@@ -117,7 +118,7 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
           <input id="samtykke" name="samtykke" type="checkbox" value="ja" required defaultChecked={false} />
           <label htmlFor="samtykke" data-samtykke-version={samtykke.version}>
             {elpris.foer}
-            <a href={PRIVATLIVSPOLITIK_STI} target="_blank" rel="noopener">
+            <a href={sti(PRIVATLIVSPOLITIK_STI)} target="_blank" rel="noopener">
               {elpris.link}
             </a>
             {elpris.efter}
