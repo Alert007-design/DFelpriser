@@ -270,7 +270,7 @@ export async function udsend(
             dfBudskab: m.har_politik && budskab.trim() ? budskab : undefined,
             links: {
               hjemmeside: appUrl,
-              logo: `${appUrl}/mail/logo-lys.png`,
+              logo: `${appUrl}/mail/df-logo.png`,
               privatliv: `${appUrl}/privatlivspolitik`,
               stop: `${appUrl}/afmeld?token=${t(afmeldToken(m.id))}`,
               stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,
