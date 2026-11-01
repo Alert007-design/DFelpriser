@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { omraadeForPostnummer, omraadeNavn } from "@/lib/omraade";
 import { delOmkringLink, PRIVATLIVSPOLITIK_STI, type Samtykketekst } from "@/lib/samtykke";
+import { fraMaerke } from "@/lib/facebook-kilde";
 import { sti } from "@/lib/sti";
 
 type Felt = "email" | "postnummer" | "samtykke";
@@ -41,6 +42,8 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
           samtykke_version: samtykke.version,
           samtykke_hash: samtykke.hash,
           hjemmeside: data.get("hjemmeside"),
+          // Kun til den anonyme optælling af tilmeldinger via et link fra Facebook. Gemmes ikke på personen.
+          ...(fraMaerke(window.location.search) ? { fra: fraMaerke(window.location.search) } : {}),
         }),
       });
       const body = (await svar.json().catch(() => ({}))) as { status?: string; besked?: string; fejl?: Partial<Record<Felt, string>> };

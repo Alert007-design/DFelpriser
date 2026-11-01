@@ -8,6 +8,7 @@ import { OMRAADER, type Omraade } from "@/lib/pris/typer";
 import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
 import { tekstHash } from "@/lib/samtykke-bevis";
 import { laesbarDato, stortFoerst } from "@/lib/tid";
+import { FraFacebookTaeller } from "./fra-facebook-taeller";
 import { Prisgraf } from "./graf";
 import { Tilmeldingsformular } from "./tilmeldingsformular";
 import { sti } from "@/lib/sti";
@@ -122,6 +123,7 @@ export default async function Forside({ searchParams }: { searchParams: Promise<
       </p>
 
       <Tilmeldingsformular samtykke={samtykke} aaben={juraGodkendt()} />
+      <FraFacebookTaeller />
     </main>
   );
 }

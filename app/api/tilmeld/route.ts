@@ -1,5 +1,6 @@
 import { hentDb } from "@/lib/db";
 import { appUrl, erTestmodtager, juraGodkendt } from "@/lib/config";
+import { erKilde, taelKildeStille } from "@/lib/facebook-kilde";
 import { corsHeaders, klientIp, laesFelter } from "@/lib/http";
 import { resendAfsender } from "@/lib/mail/afsender";
 import { tilmeld } from "@/lib/tilmelding";
@@ -45,7 +46,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const resultat = await tilmeld(hentDb(), resendAfsender(), parsed.data, { ip: klientIp(req), appUrl: appUrl(), nu: new Date() });
+    const nu = new Date();
+    const resultat = await tilmeld(hentDb(), resendAfsender(), parsed.data, { ip: klientIp(req), appUrl: appUrl(), nu });
+    if (resultat.status === "ok" && erKilde(parsed.data.fra)) await taelKildeStille(hentDb(), parsed.data.fra, "tilmelding", nu);
     return svar(HTTP[resultat.status], { status: resultat.status, besked: BESKEDER[resultat.status] });
   } catch (fejl) {
     console.error("Tilmelding fejlede", fejl);
