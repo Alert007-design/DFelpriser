@@ -1,3 +1,4 @@
+import { juraGodkendt } from "./config";
 import type { Db } from "./db";
 import { TESTKILDE_NAVN } from "./kilder/test";
 import { erFuldDag, opsummer, VINDUE_MINUTTER } from "./pris/dag";
@@ -26,6 +27,8 @@ export interface OpslagData {
   imorgen: string;
   /** Periodens længde i minutter (VINDUE_MINUTTER). */
   vindueMinutter: number;
+  /** Er tilmeldingen åben (JURA_GODKENDT=ja)? Ellers må et opslag ikke invitere til den. */
+  tilmeldingAaben: boolean;
   omraader: Record<Omraade, OmraadeOpslagData>;
 }
 
@@ -56,5 +59,5 @@ export async function opslagData(db: Db, nu: Date): Promise<OpslagData> {
       billigste,
     };
   }
-  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, omraader };
+  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, tilmeldingAaben: juraGodkendt(), omraader };
 }

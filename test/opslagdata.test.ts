@@ -83,6 +83,16 @@ describe("opslagData", () => {
     expect(d.omraader.DK2.udsendelse).toBe("i_gang");
   });
 
+  it("oplyser, om tilmeldingen er åben (JURA_GODKENDT), så opslaget ikke inviterer til noget, der ikke virker", async () => {
+    process.env.JURA_GODKENDT = "ja";
+    expect((await opslagData(db, NU)).tilmeldingAaben).toBe(true);
+    process.env.JURA_GODKENDT = "nej";
+    expect((await opslagData(db, NU)).tilmeldingAaben).toBe(false);
+    delete process.env.JURA_GODKENDT;
+    expect((await opslagData(db, NU)).tilmeldingAaben).toBe(false);
+    process.env.JURA_GODKENDT = "ja";
+  });
+
   it("indeholder ingen oplysninger om personer", async () => {
     await rigtigePriser();
     await indsaetTilmeldt(db, { email: "hemmelig.person@eksempel.dk", postnummer: "2100" });
