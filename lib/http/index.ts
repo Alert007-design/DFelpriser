@@ -48,3 +48,16 @@ export function erCron(req: Request): boolean {
   const faktisk = Buffer.from(req.headers.get("authorization") ?? "");
   return forventet.length === faktisk.length && timingSafeEqual(forventet, faktisk);
 }
+
+/**
+ * Adgang til /api/opslag-data, som dfpriser.dk bruger til elopslaget på Facebook: "Authorization: Bearer <OPSLAG_NOEGLE>".
+ * Nøglen er med vilje en anden end PROXY_NOEGLE, for den sender dfpriser.dk med på alle kald til /el, også dem
+ * fra besøgende. Uden OPSLAG_NOEGLE er adressen lukket for alle.
+ */
+export function erOpslagKald(req: Request): boolean {
+  const noegle = (process.env.OPSLAG_NOEGLE ?? "").trim();
+  if (!noegle) return false;
+  const forventet = Buffer.from(`Bearer ${noegle}`);
+  const faktisk = Buffer.from(req.headers.get("authorization") ?? "");
+  return forventet.length === faktisk.length && timingSafeEqual(forventet, faktisk);
+}
