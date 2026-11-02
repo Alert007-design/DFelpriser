@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { erOffentlig } from "@/lib/config";
 import "./globals.css";
 import { sti } from "@/lib/sti";
+import { Analytics } from "@vercel/analytics/next";
 
 const BESKRIVELSE =
   "Se hver dag, hvornår strømmen er billigst i morgen, og få en prognose for de to følgende dage. En gratis service fra Dansk Folkeparti.";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <a href={sti("/om-priserne")}>Om priserne og prognosen</a> · <a href="mailto:df@df.dk">df@df.dk</a>
           </p>
         </footer>
+        <Analytics />
       </body>
     </html>
   );
