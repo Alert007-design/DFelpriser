@@ -55,9 +55,12 @@ export function erCron(req: Request): boolean {
  * fra besøgende. Uden OPSLAG_NOEGLE er adressen lukket for alle.
  */
 export function erOpslagKald(req: Request): boolean {
-  const noegle = (process.env.OPSLAG_NOEGLE ?? "").trim();
-  if (!noegle) return false;
-  const forventet = Buffer.from(`Bearer ${noegle}`);
+  // OPSLAG_NOEGLE bruges af dfpriser.dk, STORY_NOEGLE af mrmesserschmidt.dk (lørdagens story). Hver sin nøgle.
   const faktisk = Buffer.from(req.headers.get("authorization") ?? "");
-  return forventet.length === faktisk.length && timingSafeEqual(forventet, faktisk);
+  return ["OPSLAG_NOEGLE", "STORY_NOEGLE"].some((navn) => {
+    const noegle = (process.env[navn] ?? "").trim();
+    if (!noegle) return false;
+    const forventet = Buffer.from(`Bearer ${noegle}`);
+    return forventet.length === faktisk.length && timingSafeEqual(forventet, faktisk);
+  });
 }

@@ -22,6 +22,7 @@ beforeEach(async () => {
 });
 afterEach(() => {
   delete process.env.OPSLAG_NOEGLE;
+  delete process.env.STORY_NOEGLE;
   delete process.env.PROXY_NOEGLE;
   vi.useRealTimers();
 });
@@ -153,5 +154,35 @@ describe("ruten /el/api/opslag-data", () => {
     expect(r.status).toBe(503);
     expect(await r.text()).not.toContain("hemmelig");
     log.mockRestore();
+  });
+});
+
+describe("dagens tal til storyen", () => {
+  it("giver dagens billigste periode for begge områder", async () => {
+    await rigtigePriser();
+    const d = await opslagData(db, NU);
+    for (const omr of ["DK1", "DK2"] as const) {
+      const forventet = opsummer("2026-11-02", await hentSlots(db, omr, "2026-11-02")).billigste;
+      expect(d.idag[omr]).toEqual({
+        fuldstaendig: true,
+        testdata: false,
+        billigste: { start: forventet.start.toISOString(), slut: forventet.slut.toISOString(), gennemsnitOere: forventet.gennemsnit },
+      });
+    }
+  });
+
+  it("testpriser for i dag giver ingen tal", async () => {
+    await indsaetTestpriser(db, "2026-11-02", "2026-11-03");
+    const d = await opslagData(db, NU);
+    expect(d.idag.DK1).toMatchObject({ testdata: true, billigste: null });
+  });
+
+  it("STORY_NOEGLE giver også adgang, men ikke en forkert nøgle", async () => {
+    await rigtigePriser();
+    process.env.STORY_NOEGLE = "story-noegle";
+    const ok = await route.GET(new Request("http://x/api/opslag-data", { headers: { authorization: "Bearer story-noegle" } }));
+    expect(ok.status).toBe(200);
+    const nej = await route.GET(new Request("http://x/api/opslag-data", { headers: { authorization: "Bearer forkert" } }));
+    expect(nej.status).toBe(401);
   });
 });
