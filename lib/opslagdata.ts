@@ -22,6 +22,13 @@ export interface OmraadeOpslagData {
   billigste: { start: string; slut: string; gennemsnitOere: number } | null;
 }
 
+/** Dagens tal til storyen på Mortens side (lørdag morgen). Samme regler som for morgendagen. */
+export interface OmraadeDagData {
+  fuldstaendig: boolean;
+  testdata: boolean;
+  billigste: { start: string; slut: string; gennemsnitOere: number } | null;
+}
+
 export interface OpslagData {
   dato: string;
   imorgen: string;
@@ -30,6 +37,25 @@ export interface OpslagData {
   /** Er tilmeldingen åben (JURA_GODKENDT=ja)? Ellers må et opslag ikke invitere til den. */
   tilmeldingAaben: boolean;
   omraader: Record<Omraade, OmraadeOpslagData>;
+  /** Dagens billigste periode for hvert område (priserne er kendt siden dagen før kl. 13). */
+  idag: Record<Omraade, OmraadeDagData>;
+}
+
+async function dagData(db: Db, omr: Omraade, dag: string): Promise<OmraadeDagData> {
+  const { start, slut } = dagensGraenser(dag);
+  const slots = await hentSlots(db, omr, dag);
+  const fuld = erFuldDag(dag, slots);
+  const [{ n }] = await db.query<{ n: number }>(
+    `select count(*)::int as n from spotpriser where omraade = $1 and start_utc >= $2 and start_utc < $3 and kilde = $4`,
+    [omr, start.toISOString(), slut.toISOString(), TESTKILDE_NAVN],
+  );
+  const testdata = n > 0;
+  let billigste: OmraadeDagData["billigste"] = null;
+  if (fuld.fuld && !testdata) {
+    const b = opsummer(dag, slots).billigste;
+    billigste = { start: b.start.toISOString(), slut: b.slut.toISOString(), gennemsnitOere: b.gennemsnit };
+  }
+  return { fuldstaendig: fuld.fuld, testdata, billigste };
 }
 
 export async function opslagData(db: Db, nu: Date): Promise<OpslagData> {
@@ -59,5 +85,7 @@ export async function opslagData(db: Db, nu: Date): Promise<OpslagData> {
       billigste,
     };
   }
-  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, tilmeldingAaben: juraGodkendt(), omraader };
+  const idag = {} as Record<Omraade, OmraadeDagData>;
+  for (const omr of OMRAADER) idag[omr] = await dagData(db, omr, dato);
+  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, tilmeldingAaben: juraGodkendt(), omraader, idag };
 }
