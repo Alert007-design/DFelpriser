@@ -11,7 +11,7 @@ export default async function Bekraeft({ searchParams }: { searchParams: Promise
       <main className="side">
         <div className="rude">
           <h2>Du er tilmeldt</h2>
-          <p>Fra i dag eller i morgen kl. 16 får du morgendagens elpriser og en prognose, når den er pålidelig nok.</p>
+          <p>Fra i dag eller i morgen kl. 16 får du morgendagens elpriser.</p>
         </div>
       </main>
     );
