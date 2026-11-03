@@ -6,7 +6,7 @@ import { sti } from "@/lib/sti";
 import { Analytics } from "@vercel/analytics/next";
 
 const BESKRIVELSE =
-  "Se hver dag, hvornår strømmen er billigst i morgen, og få en prognose for de to følgende dage. En gratis service fra Dansk Folkeparti.";
+  "Få hver dag at vide, hvornår strømmen er billigst i morgen. En gratis service fra Dansk Folkeparti.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL?.trim() || "http://localhost:3000"),
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <footer className="bund">
           <p>
             Afsender og dataansvarlig: Dansk Folkeparti. <a href={sti("/privatlivspolitik")}>Privatlivspolitik</a> ·{" "}
-            <a href={sti("/om-priserne")}>Om priserne og prognosen</a> · <a href="mailto:df@df.dk">df@df.dk</a>
+            <a href={sti("/om-priserne")}>Om priserne</a> · <a href="mailto:df@df.dk">df@df.dk</a>
           </p>
         </footer>
         <Analytics />
