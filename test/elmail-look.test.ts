@@ -14,9 +14,9 @@ describe("elmailen i samme udtryk som benzinmailen (Mike Kaltoft 30/10-2026)", a
     expect(mail.subject).toBe(EMNE);
     expect(EMNE).toBe("Dagens elpriser: Her bliver det billigst");
   });
-  it("logo med »Dagens elpriser« ved siden af", () => {
+  it("logo i headeren og »Dagens elpriser« som titel (Morten, 3/11-2026)", () => {
     expect(mail.html).toContain('src="https://h/mail/df-logo.png"');
-    expect(mail.html).toContain(">Dagens elpriser</td>");
+    expect(mail.html).toContain(">Dagens elpriser</div>");
   });
   it("STOP-knappen står der stadig", () => {
     expect(mail.html).toContain("STOP modtagelse af dette nyhedsbrev");
