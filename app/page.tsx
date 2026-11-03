@@ -1,126 +1,58 @@
 import { juraGodkendt } from "@/lib/config";
-import { offentligeDage, gemtePrognoser, type Dagsvisning } from "@/lib/offentlig";
-import { IKKE_MEDREGNET, KILDE_TEKST, PRAEMISSE_PROGNOSE } from "@/lib/mail/skabeloner";
-import { omraadeForPostnummer, omraadeNavn } from "@/lib/omraade";
-import { besparelseKr } from "@/lib/pris/dag";
-import { kroner, oere, periodeTekst } from "@/lib/pris/format";
-import { OMRAADER, type Omraade } from "@/lib/pris/typer";
+import { forsidePerioder } from "@/lib/forside";
+import { offentligeDage } from "@/lib/offentlig";
+import { KILDE_TEKST } from "@/lib/mail/skabeloner";
 import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
 import { tekstHash } from "@/lib/samtykke-bevis";
-import { laesbarDato, stortFoerst } from "@/lib/tid";
+import { laesbarDato } from "@/lib/tid";
 import { FraFacebookTaeller } from "./fra-facebook-taeller";
-import { Prisgraf } from "./graf";
 import { Tilmeldingsformular } from "./tilmeldingsformular";
 import { sti } from "@/lib/sti";
 
 export const dynamic = "force-dynamic";
 
-function Dag({ d, titel }: { d: Dagsvisning; titel: string }) {
-  const o = d.opsummering;
-  return (
-    <section className="rude">
-      <span className="maerke kendt">Kendte priser</span>
-      {d.testdata && <span className="maerke test"> Testdata, ikke rigtige priser</span>}
-      <h2>
-        {titel}: {stortFoerst(laesbarDato(d.dato))}
-      </h2>
-      <div className="kort-raekke">
-        <div className="kort groen">
-          <div className="lille">Billigste periode</div>
-          <div className="stor">{periodeTekst(o.billigste)}</div>
-          <div>{oere(o.billigste.gennemsnit)} øre/kWh i gennemsnit</div>
-        </div>
-        <div className="kort roed">
-          <div className="lille">Dyreste periode</div>
-          <div className="stor">{periodeTekst(o.dyreste)}</div>
-          <div>{oere(o.dyreste.gennemsnit)} øre/kWh i gennemsnit</div>
-        </div>
-      </div>
-      <p>
-        Gennemsnitspris: <strong>{oere(o.gennemsnit)} øre/kWh</strong>. Forskel mellem dyreste og billigste periode:{" "}
-        <strong>{oere(o.forskel)} øre/kWh</strong>. Flytter du 10 kWh fra den dyreste til den billigste periode, er prisforskellen{" "}
-        <strong>{kroner(besparelseKr(o, 10))} kr.</strong> (kun spotprisen, et regneeksempel).
-      </p>
-      <Prisgraf serie={d.serie} billigste={o.billigste} dyreste={o.dyreste} titel={`Elpris pr. time ${d.dato}`} />
-    </section>
-  );
-}
-
-export default async function Forside({ searchParams }: { searchParams: Promise<{ omraade?: string; postnummer?: string }> }) {
-  const sp = await searchParams;
-  const fraPostnummer = sp.postnummer ? omraadeForPostnummer(sp.postnummer.trim()) : null;
-  const valgt: Omraade = fraPostnummer ?? (sp.omraade === "DK1" ? "DK1" : "DK2");
+/**
+ * Forsiden er en tilmeldingsside (Morten, 3/11-2026): den viser kun, hvornår strømmen er billigst i Øst- og
+ * Vestdanmark, og formularen lige under. Graf, dyreste tidspunkt og sammenligning får man i mailen.
+ */
+export default async function Forside() {
   const nu = new Date();
-  const { idag, imorgen } = await offentligeDage(valgt, nu);
-  const kendteDatoer = new Set([idag?.dato, imorgen?.dato]);
-  const prognoser = (await gemtePrognoser(valgt, nu)).filter((p) => !kendteDatoer.has(p.dato));
+  const perioder = forsidePerioder({
+    DK2: await offentligeDage("DK2", nu),
+    DK1: await offentligeDage("DK1", nu),
+  });
   const samtykke = { ...ELPRIS_SAMTYKKE, hash: tekstHash(ELPRIS_SAMTYKKE.tekst) };
+  const imorgen = perioder.length > 0 && perioder.every((p) => p.hvornaar === "I morgen");
 
   return (
     <main>
       <section className="rude">
-        <h2>Hvornår er strømmen billigst?</h2>
-        <p>
-          Hver dag offentliggør elmarkedet morgendagens priser. Her kan du se, hvornår strømmen er billigst og dyrest, og
-          hvad du kan spare ved at flytte for eksempel opladning af elbilen eller en vask til de billige timer. Du behøver
-          ikke tilmelde dig for at se priserne.
-        </p>
-        <nav className="faner" aria-label="Vælg elprisområde">
-          {OMRAADER.map((o) => (
-            <a key={o} className="fane" href={`${sti("/")}?omraade=${o}`} aria-current={o === valgt}>
-              {o} – {omraadeNavn(o)}
-            </a>
-          ))}
-        </nav>
-        <form method="get" action={sti("/")} className="felt" style={{ maxWidth: 320 }}>
-          <label htmlFor="pn">Find dit område med postnummer</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input id="pn" name="postnummer" inputMode="numeric" pattern="\d{4}" maxLength={4} defaultValue={sp.postnummer ?? ""} />
-            <button className="knap sekundaer" style={{ marginTop: 0 }} type="submit">
-              Vis
-            </button>
+        <h2>{imorgen ? "Her bliver strømmen billigst i morgen" : "Her er strømmen billigst"}</h2>
+        {perioder.length > 0 ? (
+          <div className="kort-raekke">
+            {perioder.map((p) => (
+              <div className="kort groen" key={p.omraade}>
+                <div className="lille">
+                  {p.navn} · {p.hvornaar.toLowerCase()}, {laesbarDato(p.dato).replace(" den ", " ")}
+                  {p.testdata && " · testdata, ikke rigtige priser"}
+                </div>
+                <div className="stor">{p.tid}</div>
+                <div>{p.gennemsnit}</div>
+              </div>
+            ))}
           </div>
-          {sp.postnummer && !fraPostnummer && <p className="feltfejl">Vi kender ikke det postnummer.</p>}
-        </form>
-      </section>
-
-      {imorgen ? <Dag d={imorgen} titel="I morgen" /> : (
-        <section className="rude">
-          <h2>Morgendagens priser er ikke offentliggjort endnu</h2>
+        ) : (
           <p>Priserne for næste døgn offentliggøres normalt om eftermiddagen. Vi viser kun priser, der er offentliggjort.</p>
-        </section>
-      )}
-
-      {prognoser.length > 0 && (
-        <section className="rude">
-          <span className="maerke prognose">Prognose</span>
-          <h2>De følgende dage: forventede priser</h2>
-          <p><strong>Disse tal er en prognose, ikke offentliggjorte priser.</strong></p>
-          {prognoser.map((p) => (
-            <div className="prognose-boks" key={p.dato}>
-              <strong>{stortFoerst(laesbarDato(p.dato))} (prognose)</strong>
-              <br />
-              Forventet billigste periode: Kl. {String(p.billigste.startTime).padStart(2, "0")}–{String(p.billigste.slutTime).padStart(2, "0")}
-              <br />
-              Forventet gennemsnitspris: {oere(p.gennemsnit)} øre/kWh (i 8 ud af 10 af modellens seneste prognoser lå den faktiske gennemsnitspris mellem {oere(p.gennemsnitInterval.lav)} og {oere(p.gennemsnitInterval.hoej)})
-              <br />
-              Forventet laveste og højeste timepris: {oere(p.laveste)} og {oere(p.hoeyeste)} øre/kWh
-              <br />
-              Usikkerhed: {{ lav: "lav", middel: "middel", hoej: "høj" }[p.usikkerhed]}
-            </div>
-          ))}
-        </section>
-      )}
-
-      {idag && <Dag d={idag} titel="I dag" />}
-
-      <p className="forbehold">
-        <strong>{PRAEMISSE_PROGNOSE}</strong>
-        <br />
-        {IKKE_MEDREGNET}
-        <br />
-        Kilde: {KILDE_TEKST}. Se <a href={sti("/om-priserne")}>hvordan priserne og prognosen beregnes</a>.
-      </p>
+        )}
+        <p>
+          Tilmeld dig, og få hver dag kl. 16 en mail med morgendagens billigste og dyreste tidspunkt i dit område og en
+          graf over hele døgnet.
+        </p>
+        <p className="forbehold">
+          Kun spotprisen før moms. Nettarif, elafgift, moms, abonnement og elselskabets tillæg er ikke regnet med. Kilde:{" "}
+          {KILDE_TEKST}. <a href={sti("/om-priserne")}>Om priserne</a>.
+        </p>
+      </section>
 
       <Tilmeldingsformular samtykke={samtykke} aaben={juraGodkendt()} />
       <FraFacebookTaeller />

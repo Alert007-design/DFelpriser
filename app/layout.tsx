@@ -6,7 +6,7 @@ import { sti } from "@/lib/sti";
 import { Analytics } from "@vercel/analytics/next";
 
 const BESKRIVELSE =
-  "Se hver dag, hvornår strømmen er billigst i morgen, og få en prognose for de to følgende dage. En gratis service fra Dansk Folkeparti.";
+  "Se, hvornår strømmen er billigst i morgen i Øst- og Vestdanmark, og få det på mail hver dag kl. 16. Fra Dansk Folkeparti.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL?.trim() || "http://localhost:3000"),
