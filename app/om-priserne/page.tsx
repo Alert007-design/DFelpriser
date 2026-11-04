@@ -9,7 +9,7 @@ export default function OmPriserne() {
     <main className="side">
       <div className="rude">
         <h2>Om priserne</h2>
-        <p>Kilde: {KILDE_TEKST}. Priserne er markedets spotpriser for næste døgn, opgjort i 15-minutters-intervaller, og vi viser dem i øre pr. kWh. Vi bruger kun priser, der er officielt offentliggjort. Mangler en del af døgnet, sender vi ingenting.</p>
+        <p>Kilde: {KILDE_TEKST}. Priserne er markedets spotpriser for næste døgn, opgjort i 15-minutters-intervaller, og vi viser dem i kroner pr. kWh. Vi bruger kun priser, der er officielt offentliggjort. Mangler en del af døgnet, sender vi ingenting.</p>
         <p><strong>Det er ikke regnet med.</strong> {IKKE_MEDREGNET}</p>
         <p>Det billigste og dyreste tidsrum er det billigste og dyreste sammenhængende tidsrum på tre timer i et døgn. Besparelseseksemplet ganger prisforskellen mellem de to tidsrum med 10 kWh. Det viser, hvad forskellen i spotprisen er, ikke hvad din egen regning bliver.</p>
         <h2>Om prognosen</h2>
