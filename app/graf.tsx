@@ -1,5 +1,5 @@
 import { grafPunkter, type Soejle } from "@/lib/mail/graf";
-import { oere } from "@/lib/pris/format";
+import { kronerPrKwh } from "@/lib/mail/skabeloner";
 import type { Periode } from "@/lib/pris/typer";
 
 /** Søjlediagram (SVG) over prisen pr. time. Billigste tre timer er grønne, dyreste røde. */
@@ -19,13 +19,13 @@ export function Prisgraf({ serie, billigste, dyreste, titel }: { serie: Soejle[]
             height={b.h}
             fill={i(serie[k], billigste) ? "#1f8a4c" : i(serie[k], dyreste) ? "#c9303f" : "#8a9bc0"}
           >
-            <title>{`kl. ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(serie[k].start)}: ${oere(serie[k].oerePrKwh)} øre/kWh`}</title>
+            <title>{`kl. ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(serie[k].start)}: ${kronerPrKwh(serie[k].oerePrKwh)} kr. pr. kWh`}</title>
           </rect>
         ))}
       </svg>
       <figcaption className="forklaring">
-        Pris pr. time i øre/kWh (spotpris før moms). Grøn: billigste tre timer. Rød: dyreste tre timer. Højeste time:{" "}
-        {oere(Math.max(...serie.map((s) => s.oerePrKwh)))}, laveste time: {oere(Math.min(...serie.map((s) => s.oerePrKwh)))}.
+        Pris pr. time i kr. pr. kWh (spotpris før moms). Grøn: billigste tre timer. Rød: dyreste tre timer. Højeste time:{" "}
+        {kronerPrKwh(Math.max(...serie.map((s) => s.oerePrKwh)))} kr., laveste time: {kronerPrKwh(Math.min(...serie.map((s) => s.oerePrKwh)))} kr.
       </figcaption>
     </figure>
   );

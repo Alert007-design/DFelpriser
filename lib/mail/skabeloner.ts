@@ -64,9 +64,14 @@ export interface MailIndhold {
   links: MailLinks;
 }
 
-/** Hele øre uden decimaler: "165", "−3". Mailen viser runde tal, så den er nem at læse på en telefon. */
+/** Hele øre uden decimaler: "165", "−3". */
 export function heleOere(v: number): string {
   return String(Math.round(v)).replace("-", "−");
+}
+
+/** Øre pr. kWh vist som kroner med to decimaler, som medierne skriver elpriser: 276 → "2,76" (Morten, 4/11-2026). */
+export function kronerPrKwh(oere: number): string {
+  return (Math.round(oere) / 100).toFixed(2).replace(".", ",").replace("-", "−");
 }
 
 /** "Lørdag" */
@@ -112,11 +117,11 @@ export function elprisMail(i: MailIndhold): Mail {
 ${raekker
   .map((r) => {
     const fed = r.dato === d.dato;
-    return `<tr>${celle(esc(dagNavn(r.dato)), { fed })}${celle(heleOere(r.laveste), { right: true, fed })}${celle(heleOere(r.hoeyeste), { right: true, fed })}${celle(heleOere(r.gennemsnit), { right: true, fed })}</tr>`;
+    return `<tr>${celle(esc(dagNavn(r.dato)), { fed })}${celle(kronerPrKwh(r.laveste), { right: true, fed })}${celle(kronerPrKwh(r.hoeyeste), { right: true, fed })}${celle(kronerPrKwh(r.gennemsnit), { right: true, fed })}</tr>`;
   })
   .join("\n")}
 </table>
-<div style="${FONT};font-size:11px;color:${DAEMPET};padding-top:6px">Øre pr. kWh, kun spotpris.</div>`;
+<div style="${FONT};font-size:11px;color:${DAEMPET};padding-top:6px">Kr. pr. kWh, kun spotpris.</div>`;
 
   const overskrift = (tekst: string) =>
     `<div style="${FONT};font-size:16px;line-height:22px;font-weight:bold;color:${MOERKEBLAA};padding:0 0 8px 0">${tekst}</div>`;
@@ -154,9 +159,9 @@ ${raekker
 <tr><td style="padding:0 0 14px 0;${FONT};font-size:15px;color:${TEKST}">I morgen, ${esc(datoTekst.replace(" den ", " "))}</td></tr>
 <tr><td style="padding:0 0 18px 0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="kol" width="49%" valign="top">${kort("Billigst", tid(d.billigste), `${heleOere(d.billigste.gennemsnit)} øre/kWh i gennemsnit`, GROEN)}</td>
+<td class="kol" width="49%" valign="top">${kort("Billigst", tid(d.billigste), `${kronerPrKwh(d.billigste.gennemsnit)} kr. pr. kWh i gennemsnit`, GROEN)}</td>
 <td class="gap" width="2%" style="font-size:0;line-height:0">&nbsp;</td>
-<td class="kol" width="49%" valign="top">${kort("Dyrest", tid(d.dyreste), `${heleOere(d.dyreste.gennemsnit)} øre/kWh i gennemsnit`, ROED)}</td>
+<td class="kol" width="49%" valign="top">${kort("Dyrest", tid(d.dyreste), `${kronerPrKwh(d.dyreste.gennemsnit)} kr. pr. kWh i gennemsnit`, ROED)}</td>
 </tr></table></td></tr>
 <tr><td style="padding:0 0 22px 0">${overskrift("Priserne time for time")}${grafHtml(i.serie, d.billigste, d.dyreste, FONT)}</td></tr>
 <tr><td style="padding:0">${overskrift("Sammenlignet med de seneste dage")}${tabelHtml}</td></tr>
@@ -177,11 +182,11 @@ ${link(i.links.hjemmeside, "Hjemmeside")} · ${link(i.links.skiftPostnummer, "Sk
 Elprisområde ${i.omraade} (${omrKort}), postnummer ${i.postnummer}
 
 I MORGEN: ${datoTekst}
-Billigst: ${periodeTekst(d.billigste)} (${heleOere(d.billigste.gennemsnit)} øre/kWh)
-Dyrest: ${periodeTekst(d.dyreste)} (${heleOere(d.dyreste.gennemsnit)} øre/kWh)
+Billigst: ${periodeTekst(d.billigste)} (${kronerPrKwh(d.billigste.gennemsnit)} kr. pr. kWh)
+Dyrest: ${periodeTekst(d.dyreste)} (${kronerPrKwh(d.dyreste.gennemsnit)} kr. pr. kWh)
 
-SAMMENLIGNET MED DE SENESTE DAGE (øre pr. kWh, kun spotpris)
-${raekker.map((r) => `${dagNavn(r.dato)}: lavest ${heleOere(r.laveste)}, højest ${heleOere(r.hoeyeste)}, gennemsnit ${heleOere(r.gennemsnit)}`).join("\n")}
+SAMMENLIGNET MED DE SENESTE DAGE (kr. pr. kWh, kun spotpris)
+${raekker.map((r) => `${dagNavn(r.dato)}: lavest ${kronerPrKwh(r.laveste)}, højest ${kronerPrKwh(r.hoeyeste)}, gennemsnit ${kronerPrKwh(r.gennemsnit)}`).join("\n")}
 ${i.dfBudskab?.trim() ? `\nFRA DANSK FOLKEPARTI\n${i.dfBudskab.trim()}\n` : ""}
 ${KORT_FORBEHOLD} Kilde: ${KILDE_TEKST}.
 
