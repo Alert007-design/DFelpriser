@@ -72,7 +72,7 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
 
   return (
     <section className="rude" aria-labelledby="tilmeld-overskrift">
-      <h2 id="tilmeld-overskrift">Få strømpriserne i din indbakke hver dag kl. 16</h2>
+      <h2 id="tilmeld-overskrift">Få morgendagens priser med graf hver dag kl. 16</h2>
       {!aaben && (
         <p className="udkast">
           <strong>Tilmeldingen er ikke åbnet endnu.</strong> Formularen kan ses, men kun testadresser kan tilmeldes.

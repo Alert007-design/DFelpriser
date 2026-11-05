@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Siden er bygget som dfpriser.dk/benzin (Mike Kaltoft, 2/11-2026): kun dagens billigste tidspunkt for Øst- og
- * Vestdanmark og tilmeldingen. Resten af oplysningerne får man i mailen.
+ * Vestdanmark og tilmeldingen. Resten af oplysningerne får man i mailen. Teaseren er holdt lille, så formularen
+ * kan ses uden at scrolle på en mobil (Mike Kaltoft og Morten, 5/11-2026).
  */
 const OMRAADER_VIST: { omraade: Omraade; navn: string }[] = [
   { omraade: "DK2", navn: "Østdanmark" },
@@ -26,9 +27,9 @@ export default async function Forside() {
 
   return (
     <main className="side">
-      <section className="rude">
+      <section className="rude teaser">
         <h2>I dag er strømmen billigst</h2>
-        <div className="kort-raekke">
+        <div className="kort-raekke kompakt">
           {dage.map((d) => (
             <div className="kort groen" key={d.omraade}>
               <div className="lille">{d.navn}</div>
@@ -36,13 +37,10 @@ export default async function Forside() {
             </div>
           ))}
         </div>
-        <p>
-          Få morgendagens billigste og dyreste tidspunkt for strøm i dit område i din indbakke hver dag kl. 16.
-        </p>
-        <p className="forklaring">{IKKE_MEDREGNET}</p>
       </section>
 
       <Tilmeldingsformular samtykke={samtykke} aaben={juraGodkendt()} />
+      <p className="forklaring">{IKKE_MEDREGNET}</p>
       <FraFacebookTaeller />
     </main>
   );
