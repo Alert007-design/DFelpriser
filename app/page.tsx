@@ -8,7 +8,11 @@ import { tekstHash } from "@/lib/samtykke-bevis";
 import { FraFacebookTaeller } from "./fra-facebook-taeller";
 import { Tilmeldingsformular } from "./tilmeldingsformular";
 
+import type { Metadata } from "next";
+import { kanonisk } from "@/lib/seo";
+
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { alternates: { canonical: kanonisk("/") } };
 
 /**
  * Siden er bygget som dfpriser.dk/benzin (Mike Kaltoft, 2/11-2026): kun dagens billigste tidspunkt for Øst- og
