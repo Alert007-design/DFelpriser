@@ -6,6 +6,18 @@ import { omraadeForPostnummer } from "./omraade";
 import { hashToken, laesAfmeldToken, laesSkiftToken, laesSletToken, nytToken, rateNoegle } from "./tokens";
 import { bekraeftVistSamtykke } from "./samtykke-bevis";
 import type { Tilmelding } from "./validering";
+import type { EfterAendring } from "./klaviyo";
+
+/** Kaldes efter et skift eller en sletning (fx Klaviyo). Må ikke kaste; fejl ignoreres alligevel. */
+type Efter = (p: EfterAendring) => Promise<void>;
+
+async function koerEfter(efter: Efter | undefined, p: EfterAendring): Promise<void> {
+  if (!efter) return;
+  await efter(p).catch(() => {});
+}
+
+/** Virker også, før kolonnen klaviyo_overfoert findes (migrationen ikke kørt). */
+const OVERFOERT = `(to_jsonb(t) ->> 'klaviyo_overfoert') is not null as overfoert`;
 
 export type TilmeldResultat =
   | { status: "ok" }
@@ -102,6 +114,11 @@ export async function tilmeld(
 
 /** Bekræfter en tilmelding (double opt-in) og aktiverer samtykkerne. Returnerer true ved gyldigt token. */
 export async function bekraeft(db: Db, token: string, nu: Date): Promise<boolean> {
+  return (await bekraeftId(db, token, nu)) !== null;
+}
+
+/** Som bekraeft, men giver tilmeldingens id ved gyldigt token, ellers null. */
+export async function bekraeftId(db: Db, token: string, nu: Date): Promise<string | null> {
   const rows = await db.query<{ id: string }>(
     `with t as (
        update tilmeldte set status = 'aktiv', bekraeftet_tidspunkt = $2, bekraeft_token_hash = null
@@ -115,7 +132,7 @@ export async function bekraeft(db: Db, token: string, nu: Date): Promise<boolean
      select id from t`,
     [hashToken(token), nu.toISOString()],
   );
-  return rows.length === 1;
+  return rows.length === 1 ? rows[0].id : null;
 }
 
 /**
@@ -135,27 +152,39 @@ export async function afmeld(db: Db, token: string, nu: Date): Promise<"ok" | "u
 }
 
 /** Sletter personen helt på egen anmodning: tilmelding, samtykker, udsendelseslog og ratebegrænsning. */
-export async function slet(db: Db, token: string): Promise<"ok" | "ugyldig"> {
+export async function slet(db: Db, token: string, efter?: Efter): Promise<"ok" | "ugyldig"> {
   const id = laesSletToken(token);
   if (!id) return "ugyldig";
-  const slettet = await db.query<{ email: string }>(`delete from tilmeldte where id = $1 returning email`, [id]);
-  for (const { email } of slettet) {
-    await db.query(`delete from ratebegraensning where noegle = $1`, [rateNoegle("email", email)]);
+  const slettet = await db.query<EfterAendring>(
+    `delete from tilmeldte t where id = $1 returning email, postnummer, ${OVERFOERT}`,
+    [id],
+  );
+  for (const p of slettet) {
+    await db.query(`delete from ratebegraensning where noegle = $1`, [rateNoegle("email", p.email)]);
+    await koerEfter(efter, p);
   }
   return "ok";
 }
 
 /** Skifter postnummer (og dermed elprisområde) for en aktiv tilmelding. */
-export async function skiftPostnummer(db: Db, token: string, postnummer: string): Promise<"ok" | "ugyldig" | "ukendt_postnummer"> {
+export async function skiftPostnummer(
+  db: Db,
+  token: string,
+  postnummer: string,
+  efter?: Efter,
+): Promise<"ok" | "ugyldig" | "ukendt_postnummer"> {
   const id = laesSkiftToken(token);
   if (!id) return "ugyldig";
   const omraade = omraadeForPostnummer(postnummer);
   if (!omraade) return "ukendt_postnummer";
-  const r = await db.query(
-    `update tilmeldte set postnummer = $2, omraade = $3 where id = $1 and status = 'aktiv' returning id`,
+  const r = await db.query<EfterAendring>(
+    `update tilmeldte t set postnummer = $2, omraade = $3 where id = $1 and status = 'aktiv'
+     returning email, postnummer, ${OVERFOERT}`,
     [id, postnummer, omraade],
   );
-  return r.length === 1 ? "ok" : "ugyldig";
+  if (r.length !== 1) return "ugyldig";
+  await koerEfter(efter, r[0]);
+  return "ok";
 }
 
 /**
