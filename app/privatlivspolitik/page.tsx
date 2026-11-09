@@ -20,7 +20,7 @@ export default function Privatlivspolitik() {
     <main className="side">
       <div className="rude">
         <h2>Privatlivspolitik for DF-Elpriser</h2>
-        <p>Senest opdateret 9. november 2026.</p>
+        <p>Senest opdateret 10. november 2026.</p>
         <p>
           DF-Elpriser er en gratis tjeneste fra Dansk Folkeparti. Du får hver dag kl. 16 en e-mail med morgendagens
           elpriser i dit elprisområde og en prognose for de to følgende dage. Her kan du læse, hvilke oplysninger vi
@@ -81,7 +81,7 @@ export default function Privatlivspolitik() {
           nyhedsbrevssystem, Klaviyo. På din profil står også, at du får elpriserne. Her bruger vi oplysningerne til at
           administrere og udsende den politiske kommunikation, som er omfattet af dit samtykke.
         </p>
-        <p>Tilmeldte du dig før den 9. november 2026, overfører vi ikke dine oplysninger til Klaviyo.</p>
+        <p>Tilmeldte du dig før den 10. november 2026, overfører vi ikke dine oplysninger til Klaviyo.</p>
         <p>
           Klaviyo behandler oplysningerne på vegne af Dansk Folkeparti som databehandler. Oplysningerne anvendes ikke til
           andre formål end dem, der er omfattet af dit samtykke.

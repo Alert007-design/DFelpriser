@@ -1,3 +1,3 @@
-Færdigt: specifikation skrevet (9/11-2026).
-I gang: venter på Mortens godkendelse af plan/SPEC.md.
-Mangler: opgave 1-8 i plan/OPGAVER.md.
+Færdigt: opgave 1-6 (kode, tests og privatlivspolitik i denne gren).
+I gang: opgave 7 (dfpriser fletter "Pris emne").
+Mangler: Mortens ja til fletning, migration i Supabase og nøgler i Vercel.

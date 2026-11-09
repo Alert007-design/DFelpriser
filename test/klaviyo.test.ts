@@ -191,7 +191,8 @@ describe("overførsel ved bekræftelse", () => {
     } finally {
       console.error = orig;
     }
-    expect(kald).toHaveLength(1);
+    // Opslaget og importen forsøges hver én gang; ingen genforsøg ved en fast fejl.
+    expect(kald.map((k) => k.metode)).toEqual(["GET", "POST"]);
     expect(fejl.join("\n")).not.toContain("pk_hemmelig_testnoegle");
     expect(fejl.join("\n")).not.toContain("a@x.dk");
   });
