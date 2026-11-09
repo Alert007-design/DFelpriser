@@ -22,7 +22,7 @@ DF-priser (repoet `dfpriser`, læst 23. oktober 2026) er en Next.js 16-app på V
 - **Intet navn og ingen telefon.** Dataminimering: kun e-mail og postnummer.
 - ~~To adskilte samtykker~~ **Siden 24. oktober 2026 samme model som DF-priser:** ét obligatorisk samtykke, der dækker både elpriserne og politisk information. "STOP" stopper kun den daglige mail og bevarer samtykket; sletning sker kun på personens egen anmodning (siden `/slet` eller df@df.dk).
 - **Udsendelse kl. 16 med ventetid.** DF-priser sender kl. 06.01 af data, der allerede ligger i databasen. Her afhænger udsendelsen af, at morgendagens priser er offentliggjort, og den venter, genprøver og dropper efter kl. 19.
-- **Ingen Klaviyo-overførsel, ingen sms.**
+- **Ingen sms.** Fra 9. november 2026 nævner privatlivspolitikken overførsel af e-mail og postnummer til DF's Klaviyo (kun tilmeldte fra den dato). Selve overførslen bygges særskilt.
 
 ## Ikke set
 
