@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ELPRIS_SAMTYKKE } from "@/lib/samtykke";
+import { kanonisk } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Privatlivspolitik – DF-Elpriser",
   description: "Sådan behandler Dansk Folkeparti dine oplysninger, når du tilmelder dig DF-Elpriser.",
+  alternates: { canonical: kanonisk("/privatlivspolitik") },
 };
 
 /**

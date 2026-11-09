@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { IKKE_MEDREGNET, KILDE_TEKST } from "@/lib/mail/skabeloner";
 import { KRAV } from "@/lib/prognose/evaluering";
 
-export const metadata: Metadata = { title: "Om priserne og prognosen – DF-Elpriser" };
+import { kanonisk } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Om priserne og prognosen – DF-Elpriser",
+  description: "Hvor elpriserne kommer fra, hvad der ikke er regnet med, og hvordan prognosen for de næste to døgn bliver lavet og testet.",
+  alternates: { canonical: kanonisk("/om-priserne") },
+};
 
 export default function OmPriserne() {
   return (
