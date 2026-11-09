@@ -6,5 +6,5 @@
 - [x] 4. Kobl på bekræftelse og på den timelige oprydning.
 - [x] 5. Kobl på skift af postnummer og på sletning.
 - [x] 6. Privatlivspolitik (PR #19) flettet ind; datoen sat til 10. november 2026 (= KLAVIYO_FRA). Flettes kodeændringen senere end 9/11, skal begge datoer rykkes.
-- [ ] 7. dfpriser: "Pris emne" lægges til i stedet for at overskrive.
+- [x] 7. dfpriser: "Pris emne" lægges til i stedet for at overskrive (dfpriser PR #63, flettes først).
 - [ ] 8. Mortens ja. Flet. Vejledning: migration i Supabase, derefter nøgler i Vercel. Følg udrulningen.
