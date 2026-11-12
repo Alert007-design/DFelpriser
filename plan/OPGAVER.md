@@ -1,10 +1,11 @@
 # Opgaver
 
-- [x] 1. Migration: kolonnerne klaviyo_overfoert og klaviyo_fejlet på tilmeldte (additiv).
-- [x] 2. Tests (skal fejle): overførsel ved bekræftelse, udvælgelse (dato, samtykke, test), fejl og genforsøg, "Pris emne" bevarer "Benzin priser", skift af postnummer, sletning, slået fra uden nøgle, nøglen står aldrig i fejl.
-- [x] 3. lib/klaviyo.ts: klient (opret/opdater profil, læs Pris emne, tilmeld liste, fjern fra liste).
-- [x] 4. Kobl på bekræftelse og på den timelige oprydning.
-- [x] 5. Kobl på skift af postnummer og på sletning.
-- [x] 6. Privatlivspolitik (PR #19) flettet ind; datoen sat til 10. november 2026 (= KLAVIYO_FRA). Flettes kodeændringen senere end 9/11, skal begge datoer rykkes.
-- [x] 7. dfpriser: "Pris emne" lægges til i stedet for at overskrive (dfpriser PR #63, flettes først).
-- [ ] 8. Mortens ja. Flet. Vejledning: migration i Supabase, derefter nøgler i Vercel. Følg udrulningen.
+- [x] 1. Trin A: tests for, at serveren godkender den viste version, når den findes i databasen med samme tekst
+       og er kodens version, også når databasen har en nyere version (fejler fra start).
+- [x] 2. Trin A: ret lib/samtykke-bevis.ts, så testene består. PR 1.
+- [ ] 3. Trin B: migration supabase/migrations/20261112000000_navn.sql (fornavn, efternavn, samtykke version 3).
+- [ ] 4. Trin B: tests for validering, tilmelding, Klaviyo (overførsel, intet navn, sletning) og samtykke v3
+       (fejler fra start).
+- [ ] 5. Trin B: lib/samtykke.ts (version 3), lib/validering.ts, lib/tilmelding.ts, lib/klaviyo.ts.
+- [ ] 6. Trin B: app/tilmeldingsformular.tsx (felterne) og app/privatlivspolitik/page.tsx, docs/GDPR.md.
+- [ ] 7. Typecheck, lint, build og tests grønne. PR 2. Vejledning til Morten om migrationen.

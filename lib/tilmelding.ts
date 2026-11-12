@@ -5,6 +5,7 @@ import { erTestmodtager, juraGodkendt } from "./config";
 import { omraadeForPostnummer } from "./omraade";
 import { hashToken, laesAfmeldToken, laesSkiftToken, laesSletToken, nytToken, rateNoegle } from "./tokens";
 import { bekraeftVistSamtykke } from "./samtykke-bevis";
+import { ELPRIS_SAMTYKKE } from "./samtykke";
 import type { Tilmelding } from "./validering";
 import type { EfterAendring } from "./klaviyo";
 
@@ -77,7 +78,7 @@ export async function tilmeld(
   if (await overGraense(db, rateNoegle("ip", ctx.ip), MAKS_PR_IP_PR_TIME)) return { status: "for_mange" };
   if (await overGraense(db, rateNoegle("email", input.email), MAKS_PR_EMAIL_PR_TIME)) return { status: "for_mange" };
 
-  const elpris = await bekraeftVistSamtykke(db, "elpris", { version: input.samtykke_version, hash: input.samtykke_hash });
+  const elpris = await bekraeftVistSamtykke(db, "elpris", { version: input.samtykke_version, hash: input.samtykke_hash }, ELPRIS_SAMTYKKE.version);
   if (!elpris) return { status: "samtykke_foraeldet" };
 
   const nu = ctx.nu.toISOString();

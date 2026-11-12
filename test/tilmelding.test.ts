@@ -139,6 +139,21 @@ describe("tilmelding med double opt-in", () => {
     expect(af.sendte).toHaveLength(0);
   });
 
+  it("godkender kodens version, selvom databasen allerede har en nyere tekst (udrulning uden nedetid)", async () => {
+    const af = falskAfsender();
+    const nyTekst = "En kommende samtykketekst. Læs privatlivspolitikken.";
+    await db.query(`insert into samtykketekster (type, version, tekst, privatlivspolitik_url) values ('elpris', $1, $2, '/privatlivspolitik')`, [
+      ELPRIS_SAMTYKKE.version + 1,
+      nyTekst,
+    ]);
+    expect(await tilmeld(db, af, input(), ctx)).toEqual({ status: "ok" });
+    const [s] = await db.query<{ version: number; ordlyd: string }>(`select version, ordlyd from samtykker`);
+    expect(s).toEqual({ version: ELPRIS_SAMTYKKE.version, ordlyd: ELPRIS_SAMTYKKE.tekst });
+    // Den nyere tekst accepteres ikke, før koden selv viser den.
+    const r = await tilmeld(db, af, input({ email: "c@e.dk", samtykke_version: ELPRIS_SAMTYKKE.version + 1, samtykke_hash: tekstHash(nyTekst) }), ctx);
+    expect(r.status).toBe("samtykke_foraeldet");
+  });
+
   it("afviser ukendte postnumre og ugyldige e-mails", async () => {
     const af = falskAfsender();
     expect(tilmeldingSkema.safeParse({ ...input(), postnummer: "0900" }).success).toBe(false);

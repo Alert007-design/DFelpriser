@@ -13,21 +13,25 @@ export interface GaeldendeSamtykke {
 }
 
 /**
- * Finder den gældende tekst for en type og kontrollerer, at formularen viste præcis den.
- * Returnerer null, hvis versionen eller teksten ikke passer (fx en side, der blev
- * indlæst før en ny version, eller en formular et andet sted med en anden tekst).
+ * Kontrollerer, at formularen viste præcis den tekst, koden gælder for (`gaeldendeVersion`), og at den tekst ligger
+ * ordret i databasen. Returnerer null, hvis versionen eller teksten ikke passer (fx en side, der blev indlæst før en
+ * ny version, eller en formular et andet sted med en anden tekst).
+ *
+ * Der sammenlignes med kodens version og ikke med den nyeste i databasen. Så kan en ny tekst lægges i databasen,
+ * før koden, der viser den, er ude, uden at tilmeldingen står stille imens.
  */
 export async function bekraeftVistSamtykke(
   db: Db,
   type: SamtykkeType,
   vist: { version: number; hash: string },
+  gaeldendeVersion: number,
 ): Promise<GaeldendeSamtykke | null> {
-  const [gaeldende] = await db.query<{ version: number; tekst: string }>(
-    `select version, tekst from samtykketekster where type = $1 order by version desc limit 1`,
-    [type],
+  if (vist.version !== gaeldendeVersion) return null;
+  const [tekst] = await db.query<{ version: number; tekst: string }>(
+    `select version, tekst from samtykketekster where type = $1 and version = $2`,
+    [type, gaeldendeVersion],
   );
-  if (!gaeldende) throw new Error(`Ingen samtykketekst af typen ${type} i databasen`);
-  if (gaeldende.version !== vist.version) return null;
-  if (tekstHash(gaeldende.tekst) !== vist.hash) return null;
-  return { version: gaeldende.version, tekst: gaeldende.tekst };
+  if (!tekst) throw new Error(`Samtykketekst ${type} version ${gaeldendeVersion} mangler i databasen`);
+  if (tekstHash(tekst.tekst) !== vist.hash) return null;
+  return { version: tekst.version, tekst: tekst.tekst };
 }
