@@ -85,18 +85,19 @@ export async function tilmeld(
   const token = nytToken();
   // Ubekræftede rækker, afmeldte rækker og rækker, hvor den daglige mail er stoppet, fornyes: personen
   // tilmelder sig igen og bekræfter på ny. En aktiv tilmelding med aktiv mail røres ikke, så ingen kan
-  // ændre en andens postnummer ved at kende e-mailadressen.
+  // ændre en andens postnummer eller navn ved at kende e-mailadressen.
   const rows = await db.query<{ id: string }>(
-    `insert into tilmeldte (email, postnummer, omraade, test, bekraeft_token_hash, oprettet)
-     values ($1, $2, $3, $4, $5, $6)
+    `insert into tilmeldte (email, postnummer, omraade, test, bekraeft_token_hash, oprettet, fornavn, efternavn)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (email) do update set
        postnummer = excluded.postnummer, omraade = excluded.omraade, test = excluded.test,
+       fornavn = excluded.fornavn, efternavn = excluded.efternavn,
        status = 'afventer', afmeldt_tidspunkt = null, bekraeftet_tidspunkt = null,
        elpris_aktiv = true, elpris_stoppet = null,
        bekraeft_token_hash = excluded.bekraeft_token_hash, oprettet = excluded.oprettet
      where tilmeldte.status in ('afventer', 'afmeldt') or tilmeldte.elpris_aktiv = false
      returning id`,
-    [input.email, input.postnummer, omraade, test, hashToken(token), nu],
+    [input.email, input.postnummer, omraade, test, hashToken(token), nu, input.fornavn, input.efternavn],
   );
   if (rows.length === 0) return { status: "ok" }; // allerede aktiv
 

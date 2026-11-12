@@ -55,16 +55,16 @@ export function falskAfsender(): FalskAfsender {
 
 export async function indsaetTilmeldt(
   db: Db,
-  o: { email: string; omraade?: "DK1" | "DK2"; postnummer?: string; status?: string; test?: boolean; politik?: boolean; version?: 1 | 2; elprisAktiv?: boolean },
+  o: { email: string; omraade?: "DK1" | "DK2"; postnummer?: string; status?: string; test?: boolean; politik?: boolean; version?: 1 | 2 | 3; elprisAktiv?: boolean; fornavn?: string; efternavn?: string },
 ): Promise<string> {
   const omraade = o.omraade ?? "DK2";
   const postnummer = o.postnummer ?? (omraade === "DK2" ? "2100" : "8000");
   const [{ id }] = await db.query<{ id: string }>(
-    `insert into tilmeldte (email, postnummer, omraade, status, test, bekraeftet_tidspunkt, bekraeft_token_hash, elpris_aktiv, elpris_stoppet)
-     values ($1,$2,$3,$4,$5, now(), $6, $7, case when $7 then null else now() end) returning id`,
-    [o.email, postnummer, omraade, o.status ?? "aktiv", o.test ?? false, hashToken(o.email), o.elprisAktiv ?? true],
+    `insert into tilmeldte (email, postnummer, omraade, status, test, bekraeftet_tidspunkt, bekraeft_token_hash, elpris_aktiv, elpris_stoppet, fornavn, efternavn)
+     values ($1,$2,$3,$4,$5, now(), $6, $7, case when $7 then null else now() end, $8, $9) returning id`,
+    [o.email, postnummer, omraade, o.status ?? "aktiv", o.test ?? false, hashToken(o.email), o.elprisAktiv ?? true, o.fornavn ?? null, o.efternavn ?? null],
   );
-  // Standard er den gældende tekst (version 2). version: 1 efterligner en tilmelding fra før omlægningen.
+  // Standard er version 2 (uden navn). version: 1 efterligner en tilmelding fra før omlægningen.
   const version = o.version ?? 2;
   const aktiv = (o.status ?? "aktiv") === "aktiv";
   for (const type of ["elpris", ...(o.politik ? ["politik"] : [])]) {

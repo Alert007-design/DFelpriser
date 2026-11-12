@@ -5,13 +5,15 @@ import type { Db } from "./db";
  *
  * Slået fra, medmindre både KLAVIYO_API_KEY og KLAVIYO_LIST_ID er sat. En fejl hos Klaviyo stopper aldrig en
  * bekræftelse, et skift af postnummer eller en sletning: den logges, og overførslen prøves igen hver time.
- * Kun e-mailadresse, postnummer (Location og Zipcode) og "Pris emne" sendes. Nøglen står aldrig i koden, i logs
+ * Kun navn (fra 12/11-2026, når det findes), e-mailadresse, postnummer (Location og Zipcode) og "Pris emne" sendes. Nøglen står aldrig i koden, i logs
  * eller i fejlbeskeder, og e-mailadressen logges aldrig.
  *
  * Kun personer, der gav samtykke på eller efter KLAVIYO_FRA, overføres: før den dag lovede privatlivspolitikken,
  * at intet blev overført. STOP af den daglige mail ændrer intet i Klaviyo, fordi samtykket til politisk
  * information gælder fortsat. Ved sletning fjernes EL priser fra "Pris emne"; står der ikke andet, fjernes også
- * Zipcode, og personen tages af listen. Selve profilen slettes ikke, fordi den kan stamme fra andre DF-tjenester.
+ * Zipcode, fornavn og efternavn, og personen tages af listen. Selve profilen slettes ikke, fordi den kan stamme fra
+ * andre DF-tjenester. Mangler navnet (tilmeldt før 12/11-2026), sendes navnefelterne ikke, så et navn fra fx
+ * benzinpriserne ikke overskrives.
  */
 
 /** Hvornår den nye privatlivspolitik gælder fra. Samme dato står i privatlivspolitikken. */
@@ -35,6 +37,11 @@ export class KlaviyoFejl extends Error {
   }
 }
 
+export interface Navn {
+  fornavn: string;
+  efternavn: string;
+}
+
 export interface Profil {
   id: string;
   prisEmne: string[];
@@ -43,10 +50,11 @@ export interface Profil {
 export interface KlaviyoKlient {
   hentProfil(email: string): Promise<Profil | null>;
   /** Opretter eller opdaterer profilen. Kun de egne felter, der sendes med, ændres. */
-  importer(p: { email: string; postnummer: string; prisEmne?: string[] }): Promise<void>;
+  importer(p: { email: string; postnummer: string; prisEmne?: string[]; navn?: Navn | null }): Promise<void>;
   abonner(email: string): Promise<void>;
   saetPrisEmne(id: string, prisEmne: string[]): Promise<void>;
-  fjernFelter(id: string, felter: string[]): Promise<void>;
+  /** Fjerner egne felter og, med `navn`, også fornavn og efternavn. */
+  fjernFelter(id: string, felter: string[], o?: { navn?: boolean }): Promise<void>;
   fjernFraListe(id: string): Promise<void>;
 }
 
@@ -100,12 +108,17 @@ export function klaviyoKlient(fetchFn: typeof fetch = fetch): KlaviyoKlient | nu
       const p = r?.data?.[0];
       return p ? { id: p.id, prisEmne: somListe(p.attributes?.properties?.[PRIS_EMNE]) } : null;
     },
-    async importer({ email, postnummer, prisEmne }) {
+    async importer({ email, postnummer, prisEmne, navn }) {
       const properties: Record<string, unknown> = { [ZIPCODE]: postnummer };
       if (prisEmne) properties[PRIS_EMNE] = prisEmne;
-      await kald("POST", "/api/profile-import", {
-        data: { type: "profile", attributes: { email, location: { zip: postnummer }, properties } },
-      });
+      const attributes: Record<string, unknown> = { email };
+      if (navn) {
+        attributes.first_name = navn.fornavn;
+        attributes.last_name = navn.efternavn;
+      }
+      attributes.location = { zip: postnummer };
+      attributes.properties = properties;
+      await kald("POST", "/api/profile-import", { data: { type: "profile", attributes } });
     },
     async abonner(email) {
       await kald("POST", "/api/profile-subscription-bulk-create-jobs", {
@@ -124,8 +137,10 @@ export function klaviyoKlient(fetchFn: typeof fetch = fetch): KlaviyoKlient | nu
     async saetPrisEmne(id, prisEmne) {
       await kald("PATCH", `/api/profiles/${id}`, { data: { type: "profile", id, attributes: { properties: { [PRIS_EMNE]: prisEmne } } } });
     },
-    async fjernFelter(id, felter) {
-      await kald("PATCH", `/api/profiles/${id}`, { data: { type: "profile", id, attributes: {}, meta: { patch_properties: { unset: felter } } } });
+    async fjernFelter(id, felter, o) {
+      // null fjerner et standardfelt i Klaviyo; egne felter fjernes med unset.
+      const attributes = o?.navn ? { first_name: null, last_name: null } : {};
+      await kald("PATCH", `/api/profiles/${id}`, { data: { type: "profile", id, attributes, meta: { patch_properties: { unset: felter } } } });
     },
     async fjernFraListe(id) {
       await kald("DELETE", `/api/lists/${liste}/relationships/profiles`, { data: [{ type: "profile", id }] });
@@ -167,7 +182,15 @@ const UDVALG = `
 
 export type Udfald = "overfoert" | "fejlet" | "ikke_udvalgt" | "slaaet_fra";
 
-async function overfoerPerson(db: Db, klient: KlaviyoKlient, afh: Afhaengigheder, p: { id: string; email: string; postnummer: string }, nu: Date) {
+interface Udvalgt {
+  id: string;
+  email: string;
+  postnummer: string;
+  fornavn: string | null;
+  efternavn: string | null;
+}
+
+async function overfoerPerson(db: Db, klient: KlaviyoKlient, afh: Afhaengigheder, p: Udvalgt, nu: Date) {
   try {
     // Kan profilen ikke slås op, sendes EL priser alene, så overførslen ikke går i stå.
     const profil = await medForsoeg(() => klient.hentProfil(p.email), afh).catch((e) => {
@@ -176,7 +199,8 @@ async function overfoerPerson(db: Db, klient: KlaviyoKlient, afh: Afhaengigheder
     });
     const prisEmne = profil?.prisEmne ?? [];
     if (!prisEmne.includes(EL_PRISER)) prisEmne.push(EL_PRISER);
-    await medForsoeg(() => klient.importer({ email: p.email, postnummer: p.postnummer, prisEmne }), afh);
+    const navn = p.fornavn && p.efternavn ? { fornavn: p.fornavn, efternavn: p.efternavn } : null;
+    await medForsoeg(() => klient.importer({ email: p.email, postnummer: p.postnummer, prisEmne, navn }), afh);
     await medForsoeg(() => klient.abonner(p.email), afh);
   } catch (e) {
     console.error("Klaviyo-overførsel fejlede", p.id, fejltekst(e));
@@ -197,8 +221,8 @@ export async function overfoerEn(
 ): Promise<Udfald> {
   if (!afh.klient) return "slaaet_fra";
   try {
-    const [p] = await db.query<{ id: string; email: string; postnummer: string }>(
-      `select t.id, t.email, t.postnummer ${UDVALG} and t.id = $2`,
+    const [p] = await db.query<Udvalgt>(
+      `select t.id, t.email, t.postnummer, t.fornavn, t.efternavn ${UDVALG} and t.id = $2`,
       [fra.toISOString(), id],
     );
     if (!p) return "ikke_udvalgt";
@@ -219,8 +243,8 @@ export async function overfoerManglende(
   const res = { overfoert: 0, fejlet: 0 };
   if (!afh.klient) return res;
   try {
-    const rows = await db.query<{ id: string; email: string; postnummer: string }>(
-      `select t.id, t.email, t.postnummer ${UDVALG} order by t.klaviyo_fejlet nulls first, t.bekraeftet_tidspunkt limit $2`,
+    const rows = await db.query<Udvalgt>(
+      `select t.id, t.email, t.postnummer, t.fornavn, t.efternavn ${UDVALG} order by t.klaviyo_fejlet nulls first, t.bekraeftet_tidspunkt limit $2`,
       [fra.toISOString(), maks],
     );
     for (const p of rows) {
@@ -255,7 +279,7 @@ export async function postnummerTilKlaviyo(p: EfterAendring, afh: Afhaengigheder
   }
 }
 
-/** Efter sletning: fjern EL priser, og står der ikke andet, også Zipcode og listen. Kaster aldrig. */
+/** Efter sletning: fjern EL priser, og står der ikke andet, også Zipcode, navnet og listen. Kaster aldrig. */
 export async function sletIKlaviyo(p: EfterAendring, afh: Afhaengigheder = { klient: klaviyoKlient() }): Promise<void> {
   const klient = afh.klient;
   if (!klient || !p.overfoert) return;
@@ -267,7 +291,7 @@ export async function sletIKlaviyo(p: EfterAendring, afh: Afhaengigheder = { kli
       await medForsoeg(() => klient.saetPrisEmne(profil.id, rest), afh);
       return;
     }
-    await medForsoeg(() => klient.fjernFelter(profil.id, [PRIS_EMNE, ZIPCODE]), afh);
+    await medForsoeg(() => klient.fjernFelter(profil.id, [PRIS_EMNE, ZIPCODE], { navn: true }), afh);
     await medForsoeg(() => klient.fjernFraListe(profil.id), afh);
   } catch (e) {
     // Sletningen hos os er gennemført. Logges uden e-mailadresse, så den kan klares manuelt.

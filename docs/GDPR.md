@@ -12,7 +12,7 @@
 | Stop af den daglige mail | Dominerende knap i hver mail (»STOP modtagelse af dette nyhedsbrev«) og one-click-header. Stopper kun den daglige mail; person og samtykke bevares, så politisk information fortsat må sendes. Tidspunktet registreres |
 | Sletning | Kun på personens egen anmodning: mindre link i mailen til `/slet` med bekræftelsesknap, eller mail til df@df.dk. Fjerner alt (tilmelding, samtykke, udsendelseslog, ratebegrænsning) |
 | Skift af postnummer | Link i hver mail |
-| Dataminimering | Kun e-mail og postnummer (+ afledt elprisområde). Intet navn, ingen telefon, ingen sporingscookies |
+| Dataminimering | Kun navn (fra 12/11-2026, til tiltale i nyhedsbreve), e-mail og postnummer (+ afledt elprisområde). Ingen telefon, ingen sporingscookies |
 | Adgangskontrol | Databasen nås kun fra serveren (RLS uden policies). Admin bag adgangskode og signeret cookie. Rate limit på tilmelding og login |
 | Adskillelse | Eget Supabase-projekt. Ingen overførsel fra DF-priser, og ingen kode læser DF-priser (testet) |
 

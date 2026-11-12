@@ -13,14 +13,15 @@ export const metadata: Metadata = {
 /**
  * Privatlivspolitik for DF-Elpriser. Samtykketeksten linker hertil. Samme model som Dansk Folkepartis
  * brændstofpris-tjeneste; godkendt af ejeren 24. oktober 2026 (se docs/GDPR.md). Afsnittet om Klaviyo er tilføjet
- * 9. november 2026, så politikken svarer til dfpriser.dk/benzin og mortensaften.dk.
+ * 9. november 2026, så politikken svarer til dfpriser.dk/benzin og mortensaften.dk. Navnet er tilføjet 12. november
+ * 2026 (godkendt af Morten), ligesom på dfpriser.dk/benzin.
  */
 export default function Privatlivspolitik() {
   return (
     <main className="side">
       <div className="rude">
         <h2>Privatlivspolitik for DF-Elpriser</h2>
-        <p>Senest opdateret 10. november 2026.</p>
+        <p>Senest opdateret 12. november 2026.</p>
         <p>
           DF-Elpriser er en gratis tjeneste fra Dansk Folkeparti. Du får hver dag kl. 16 en e-mail med morgendagens
           elpriser i dit elprisområde og en prognose for de to følgende dage. Her kan du læse, hvilke oplysninger vi
@@ -45,11 +46,11 @@ export default function Privatlivspolitik() {
 
         <h3>Hvilke oplysninger vi behandler</h3>
         <ul>
-          <li>Din e-mailadresse og dit postnummer. Postnummeret bruges til at finde dit elprisområde (Vestdanmark eller Østdanmark). Vi beder ikke om dit navn.</li>
+          <li>Dit navn, din e-mailadresse og dit postnummer. Postnummeret bruges til at finde dit elprisområde (Vestdanmark eller Østdanmark). Navnet bruges, så vi kan skrive til dig personligt. Tilmeldte du dig før den 12. november 2026, har vi ikke dit navn.</li>
           <li>Dokumentation for dit samtykke: hvilken tekst du satte kryds ved (ordlyd og versionsnummer), hvornår du tilmeldte dig, hvornår du bekræftede tilmeldingen via linket i bekræftelsesmailen, og om og hvornår du har stoppet den daglige e-mail.</li>
           <li>En log over, hvilke dage vi har sendt dig den daglige e-mail, og om afsendelsen lykkedes. Vi gemmer ikke indholdet.</li>
           <li>For at beskytte tjenesten mod misbrug registrerer vi i op til et døgn en krypteret værdi (HMAC) af din IP-adresse og din e-mailadresse ved hver tilmelding.</li>
-          <li>Når du har bekræftet din tilmelding, overføres din e-mailadresse og dit postnummer også til Dansk Folkepartis nyhedsbrevssystem, Klaviyo.</li>
+          <li>Når du har bekræftet din tilmelding, overføres dit navn, din e-mailadresse og dit postnummer også til Dansk Folkepartis nyhedsbrevssystem, Klaviyo.</li>
         </ul>
         <p>Vi bruger ingen sporings- eller statistikcookies.</p>
         <p>
@@ -77,8 +78,8 @@ export default function Privatlivspolitik() {
 
         <h3>Dansk Folkepartis nyhedsbrev</h3>
         <p>
-          Når du har bekræftet din tilmelding, overfører vi din e-mailadresse og dit postnummer til Dansk Folkepartis
-          nyhedsbrevssystem, Klaviyo. På din profil står også, at du får elpriserne. Her bruger vi oplysningerne til at
+          Når du har bekræftet din tilmelding, overfører vi dit navn, din e-mailadresse og dit postnummer til Dansk
+          Folkepartis nyhedsbrevssystem, Klaviyo. På din profil står også, at du får elpriserne. Her bruger vi oplysningerne til at
           administrere og udsende den politiske kommunikation, som er omfattet af dit samtykke.
         </p>
         <p>Tilmeldte du dig før den 10. november 2026, overfører vi ikke dine oplysninger til Klaviyo.</p>
@@ -105,7 +106,7 @@ export default function Privatlivspolitik() {
             <strong>Stop den daglige e-mail:</strong> Klik på »STOP modtagelse af dette nyhedsbrev«. Så får du ikke længere
             den daglige e-mail med elpriser, men Dansk Folkeparti kan fortsat sende dig information om politik og politiske
             udspil, som er omfattet af dit samtykke, indtil du beder os om at slette dine oplysninger. Vi sletter ikke dine
-            oplysninger og trækker ikke dit samtykke tilbage: Din e-mailadresse, dit postnummer og dokumentationen for dit
+            oplysninger og trækker ikke dit samtykke tilbage: Dit navn, din e-mailadresse, dit postnummer og dokumentationen for dit
             samtykke bliver gemt, indtil du beder os om at slette dem. Vi registrerer, at og hvornår du har stoppet
             e-mailen. Det samme sker, hvis du bruger afmeldingsknappen i dit e-mailprogram.
           </li>
@@ -129,7 +130,7 @@ export default function Privatlivspolitik() {
           <li>Bekræfter du ikke din tilmelding inden for 72 timer, sletter vi oplysningerne automatisk (senest en time efter fristen).</li>
           <li>Så længe du er tilmeldt, opbevarer vi de oplysninger, der er nødvendige for at levere tjenesten.</li>
           <li>Stopper du den daglige e-mail, opbevarer vi dine oplysninger, indtil du beder os om at slette dem. Vi sender dig ikke den daglige e-mail, mens den er stoppet.</li>
-          <li>Beder du om at blive slettet, sletter vi straks dine oplysninger – både i elpris-systemet og i Dansk Folkepartis nyhedsbrevssystem, Klaviyo. I elpris-systemet sletter vi din e-mailadresse, dit postnummer, dokumentationen for dit samtykke og loggen over sendte e-mails. E-mails, der allerede er sendt, findes hos vores e-mailleverandør, indtil de slettes automatisk efter 30 dage.</li>
+          <li>Beder du om at blive slettet, sletter vi straks dine oplysninger – både i elpris-systemet og i Dansk Folkepartis nyhedsbrevssystem, Klaviyo. I elpris-systemet sletter vi dit navn, din e-mailadresse, dit postnummer, dokumentationen for dit samtykke og loggen over sendte e-mails. E-mails, der allerede er sendt, findes hos vores e-mailleverandør, indtil de slettes automatisk efter 30 dage.</li>
           <li>Vi bevarer kun anonyme optællinger, fx hvor mange e-mails der blev sendt en given dag. De kan ikke føres tilbage til dig.</li>
           <li>Selve ordlyden af vores samtykketekster bevares som dokumentation for, hvilke tekster tjenesten har brugt. Den indeholder ingen oplysninger om dig.</li>
         </ul>
