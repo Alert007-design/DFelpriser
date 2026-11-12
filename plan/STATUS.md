@@ -1,3 +1,3 @@
-Færdigt: opgave 1-7 (kode, tests, privatlivspolitik; dfpriser PR #63).
-I gang: venter på Mortens ja til at flette dfpriser #63 og derefter DFelpriser #20.
-Mangler: migration i Supabase og nøgler i Vercel (vejledning til Morten), følg udrulningen.
+Færdigt: plan godkendt 12/11-2026; opgave 1-2 (trin A).
+I gang: opgave 3-7 (trin B, gren navn-paa-tilmelding).
+Mangler: migration i Supabase (Morten), fletning af PR 1 og PR 2 efter Mortens ja.
