@@ -4,7 +4,8 @@
  * samme model som partiets brændstofpris-tjeneste). Man kan ikke tilmelde sig det ene uden det andet.
  *
  * Version 1 og det tidligere separate politiske samtykke ("politik") findes stadig i databasen som
- * dokumentation for dem, der tilmeldte sig før omlægningen. Nye tilmeldinger får kun "elpris" version 2.
+ * dokumentation for dem, der tilmeldte sig før omlægningen. Version 2 bevares for dem, der tilmeldte sig uden navn.
+ * Nye tilmeldinger får "elpris" version 3, som nævner navnet (godkendt af Morten 12/11-2026).
  *
  * Hver tekst har et fast versionsnummer og ligger ordret i tabellen `samtykketekster`, hvor den ikke kan
  * ændres. Formularen sender versionsnummer og SHA-256 af den viste tekst, og API'et afviser tilmeldingen,
@@ -28,9 +29,9 @@ export interface Samtykketekst {
 
 export const ELPRIS_SAMTYKKE: Samtykketekst = {
   type: "elpris",
-  version: 2,
+  version: 3,
   tekst:
-    "Ja tak. Jeg vil hver dag kl. 16 modtage en e-mail fra Dansk Folkeparti med morgendagens elpriser og en prognose for de to følgende dage i mit elprisområde samt information om Dansk Folkepartis politik og politiske udspil. Jeg giver udtrykkeligt samtykke til, at Dansk Folkeparti behandler min e-mailadresse og mit postnummer til disse formål. Min tilmelding kan være en oplysning om politisk interesse. Jeg kan til enhver tid trække mit samtykke tilbage via afmeldingslinket i e-mailen. Læs privatlivspolitikken.",
+    "Ja tak. Jeg vil hver dag kl. 16 modtage en e-mail fra Dansk Folkeparti med morgendagens elpriser og en prognose for de to følgende dage i mit elprisområde samt information om Dansk Folkepartis politik og politiske udspil. Jeg giver udtrykkeligt samtykke til, at Dansk Folkeparti behandler mit navn, min e-mailadresse og mit postnummer til disse formål. Min tilmelding kan være en oplysning om politisk interesse. Jeg kan til enhver tid trække mit samtykke tilbage via afmeldingslinket i e-mailen. Læs privatlivspolitikken.",
 };
 
 /** Første version af elprissamtykket, hvor politisk information krævede et separat samtykke. */

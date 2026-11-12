@@ -6,7 +6,7 @@ import { delOmkringLink, PRIVATLIVSPOLITIK_STI, type Samtykketekst } from "@/lib
 import { fraMaerke } from "@/lib/facebook-kilde";
 import { sti } from "@/lib/sti";
 
-type Felt = "email" | "postnummer" | "samtykke";
+type Felt = "fornavn" | "efternavn" | "email" | "postnummer" | "samtykke";
 export type VistSamtykke = Samtykketekst & { hash: string };
 
 function Feltfejl({ id, tekst }: { id: string; tekst?: string }) {
@@ -36,6 +36,8 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          fornavn: data.get("fornavn"),
+          efternavn: data.get("efternavn"),
           email: data.get("email"),
           postnummer: data.get("postnummer"),
           samtykke: data.get("samtykke") === "ja",
@@ -81,6 +83,18 @@ export function Tilmeldingsformular({ samtykke, aaben }: { samtykke: VistSamtykk
       <form method="post" action={sti("/api/tilmeld")} onSubmit={indsend}>
         <input type="hidden" name="samtykke_version" value={samtykke.version} />
         <input type="hidden" name="samtykke_hash" value={samtykke.hash} />
+        <div className="felter navne">
+          <div className="felt">
+            <label htmlFor="fornavn">Fornavn</label>
+            <input id="fornavn" name="fornavn" type="text" required autoComplete="given-name" maxLength={60} aria-invalid={fejl.fornavn ? true : undefined} />
+            <Feltfejl id="fornavn-fejl" tekst={fejl.fornavn} />
+          </div>
+          <div className="felt">
+            <label htmlFor="efternavn">Efternavn</label>
+            <input id="efternavn" name="efternavn" type="text" required autoComplete="family-name" maxLength={60} aria-invalid={fejl.efternavn ? true : undefined} />
+            <Feltfejl id="efternavn-fejl" tekst={fejl.efternavn} />
+          </div>
+        </div>
         <div className="felter">
           <div className="felt">
             <label htmlFor="email">E-mail</label>

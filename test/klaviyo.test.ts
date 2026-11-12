@@ -46,8 +46,22 @@ function falskKlaviyo(o: { profil?: { id: string; properties: Record<string, unk
   return { f, kald };
 }
 
-async function person(db: Db, email: string, o: { givet?: Date; version?: 1 | 2; test?: boolean; status?: string; elprisAktiv?: boolean; postnummer?: string } = {}) {
-  const id = await indsaetTilmeldt(db, { email, test: o.test, status: o.status, version: o.version, elprisAktiv: o.elprisAktiv, postnummer: o.postnummer, omraade: "DK2" });
+async function person(
+  db: Db,
+  email: string,
+  o: { givet?: Date; version?: 1 | 2 | 3; test?: boolean; status?: string; elprisAktiv?: boolean; postnummer?: string; fornavn?: string; efternavn?: string } = {},
+) {
+  const id = await indsaetTilmeldt(db, {
+    email,
+    test: o.test,
+    status: o.status,
+    version: o.version,
+    elprisAktiv: o.elprisAktiv,
+    postnummer: o.postnummer,
+    omraade: "DK2",
+    fornavn: o.fornavn,
+    efternavn: o.efternavn,
+  });
   await db.query(`update samtykker set givet = $2 where tilmeldt_id = $1`, [id, (o.givet ?? EFTER).toISOString()]);
   return id;
 }
@@ -81,6 +95,33 @@ describe("overførsel ved bekræftelse", () => {
     }
     const [r] = await db.query<{ klaviyo_overfoert: Date | null }>(`select klaviyo_overfoert from tilmeldte where id = $1`, [id]);
     expect(new Date(r.klaviyo_overfoert!).toISOString()).toBe(EFTER.toISOString());
+  });
+
+  it("sender fornavn og efternavn, når navnet findes (samtykke version 3)", async () => {
+    const db = await nyDb();
+    const id = await person(db, "n@x.dk", { version: 3, fornavn: "Anna", efternavn: "Hansen", postnummer: "2100" });
+    medNoegle();
+    const { f, kald } = falskKlaviyo();
+    expect(await overfoerEn(db, id, { klient: klaviyoKlient(f), sov }, EFTER)).toBe("overfoert");
+    const imp = kald.find((k) => k.url.endsWith("/api/profile-import"))!;
+    expect(krop(imp).data.attributes).toEqual({
+      email: "n@x.dk",
+      first_name: "Anna",
+      last_name: "Hansen",
+      location: { zip: "2100" },
+      properties: { Zipcode: "2100", "Pris emne": [EL_PRISER] },
+    });
+  });
+
+  it("uden navn (tilmeldt før ændringen) sendes navnefelterne slet ikke, så et navn fra benzinpriserne bevares", async () => {
+    const db = await nyDb();
+    const id = await person(db, "u@x.dk");
+    medNoegle();
+    const { f, kald } = falskKlaviyo({ profil: { id: "P1", properties: { "Pris emne": ["Benzin priser"] } } });
+    expect(await overfoerEn(db, id, { klient: klaviyoKlient(f), sov }, EFTER)).toBe("overfoert");
+    const a = krop(kald.find((k) => k.url.endsWith("/api/profile-import"))!).data.attributes;
+    expect(a).not.toHaveProperty("first_name");
+    expect(a).not.toHaveProperty("last_name");
   });
 
   it("bevarer Benzin priser, når profilen allerede har den", async () => {
@@ -276,7 +317,7 @@ describe("sletning", () => {
     return id;
   }
 
-  it("kun EL priser: Pris emne og Zipcode fjernes, og personen tages af listen; profilen slettes ikke", async () => {
+  it("kun EL priser: Pris emne, Zipcode, fornavn og efternavn fjernes, og personen tages af listen; profilen slettes ikke", async () => {
     const db = await nyDb();
     const id = await overfoert(db, "a@x.dk");
     medNoegle();
@@ -286,7 +327,9 @@ describe("sletning", () => {
     expect(await db.query(`select 1 from tilmeldte`)).toHaveLength(0);
 
     const patch = kald.find((k) => k.metode === "PATCH")!;
-    expect(krop(patch)).toEqual({ data: { type: "profile", id: "P1", attributes: {}, meta: { patch_properties: { unset: ["Pris emne", "Zipcode"] } } } });
+    expect(krop(patch)).toEqual({
+      data: { type: "profile", id: "P1", attributes: { first_name: null, last_name: null }, meta: { patch_properties: { unset: ["Pris emne", "Zipcode"] } } },
+    });
     const ud = kald.find((k) => k.metode === "DELETE")!;
     expect(ud.url).toBe("https://a.klaviyo.com/api/lists/LISTE42/relationships/profiles");
     expect(krop(ud)).toEqual({ data: [{ type: "profile", id: "P1" }] });
@@ -300,6 +343,7 @@ describe("sletning", () => {
     const { f, kald } = falskKlaviyo({ profil: { id: "P2", properties: { "Pris emne": ["Benzin priser", EL_PRISER], Zipcode: "2100" } } });
     expect(await slet(db, sletToken(id), (p) => sletIKlaviyo(p, { klient: klaviyoKlient(f), sov }))).toBe("ok");
     const patch = kald.find((k) => k.metode === "PATCH")!;
+    // Navnet røres ikke: det kan stamme fra benzinpriserne.
     expect(krop(patch)).toEqual({ data: { type: "profile", id: "P2", attributes: { properties: { "Pris emne": ["Benzin priser"] } } } });
     expect(kald.some((k) => k.metode === "DELETE")).toBe(false);
   });

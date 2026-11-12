@@ -58,7 +58,7 @@ describe("mærket fra=", () => {
     expect(besoegKald("?fra=andet")).toBeNull();
   });
   it("tilmeldingsskemaet tager imod fb-el og ignorerer alt andet", () => {
-    const f = { email: "a@b.dk", postnummer: "2100", samtykke: true, samtykke_version: ELPRIS_SAMTYKKE.version, samtykke_hash: tekstHash(ELPRIS_SAMTYKKE.tekst) };
+    const f = { fornavn: "Anna", efternavn: "Hansen", email: "a@b.dk", postnummer: "2100", samtykke: true, samtykke_version: ELPRIS_SAMTYKKE.version, samtykke_hash: tekstHash(ELPRIS_SAMTYKKE.tekst) };
     expect(tilmeldingSkema.parse({ ...f, fra: "fb-el" }).fra).toBe("fb-el");
     expect(tilmeldingSkema.parse({ ...f, fra: "fb-benzin" }).fra).toBeUndefined();
     expect(tilmeldingSkema.parse({ ...f, fra: "<script>" }).fra).toBeUndefined();
@@ -121,7 +121,7 @@ describe("tilmelding via Facebook-link", () => {
       new Request(`${APP}/el/api/tilmeld`, {
         method: "POST",
         headers: { "content-type": "application/json", "x-forwarded-for": "10.0.0.7" },
-        body: JSON.stringify({ email, postnummer: "2100", samtykke: true, samtykke_version: ELPRIS_SAMTYKKE.version, samtykke_hash: tekstHash(ELPRIS_SAMTYKKE.tekst), ...ekstra }),
+        body: JSON.stringify({ fornavn: "Anna", efternavn: "Hansen", email, postnummer: "2100", samtykke: true, samtykke_version: ELPRIS_SAMTYKKE.version, samtykke_hash: tekstHash(ELPRIS_SAMTYKKE.tekst), ...ekstra }),
       }),
     );
 

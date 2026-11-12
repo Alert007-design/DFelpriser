@@ -13,11 +13,21 @@ export const postnummerFelt = z
   .regex(/^\d{4}$/, "Postnummeret skal være fire cifre")
   .refine((p) => omraadeForPostnummer(p) !== null, "Vi kender ikke det postnummer");
 
+/** Fornavn eller efternavn: påkrævet, mellemrum i enderne fjernes og flere mellemrum i træk bliver til ét. */
+const navnedel = (fejl: string) =>
+  z
+    .string({ error: fejl })
+    .transform((v) => v.trim().replace(/\s+/g, " "))
+    .pipe(z.string().min(1, fejl).max(60, "Højst 60 tegn"));
+
 /**
- * Tilmelding. Dataminimering: kun e-mail og postnummer. Ét samtykke, der ikke er forhåndsafkrydset og skal
+ * Tilmelding. Dataminimering: kun navn, e-mail og postnummer. Navnet bruges til tiltale i Dansk Folkepartis
+ * nyhedsbreve (godkendt af Morten 12/11-2026). Ét samtykke, der ikke er forhåndsafkrydset og skal
  * sendes udtrykkeligt. Felter fra den tidligere formular med et separat politisk samtykke ignoreres.
  */
 export const tilmeldingSkema = z.object({
+  fornavn: navnedel("Skriv dit fornavn"),
+  efternavn: navnedel("Skriv dit efternavn"),
   email,
   postnummer: postnummerFelt,
   samtykke: z.unknown().refine(ja, "Du skal give samtykke for at tilmelde dig"),

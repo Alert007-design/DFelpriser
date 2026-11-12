@@ -10,6 +10,8 @@ const ctx = { ip: "1.2.3.4", appUrl: "https://eksempel.test", nu: new Date("2026
 
 function input(o: Partial<Record<string, unknown>> = {}): Tilmelding {
   return tilmeldingSkema.parse({
+    fornavn: "Anna",
+    efternavn: "Hansen",
     email: "Anna@Eksempel.dk ",
     postnummer: "2100",
     samtykke: true,
@@ -30,13 +32,18 @@ describe("samtykketekster", () => {
     expect(r.version).toBe(ELPRIS_SAMTYKKE.version);
     expect(r.tekst).toBe(ELPRIS_SAMTYKKE.tekst);
   });
-  it("version 2 dækker både elpriser og politisk information, og version 1 er bevaret", async () => {
+  it("version 3 nævner navnet og dækker både elpriser og politisk information; version 1 og 2 er bevaret", async () => {
     const db = await nyDb();
-    expect(ELPRIS_SAMTYKKE.version).toBe(2);
+    expect(ELPRIS_SAMTYKKE.version).toBe(3);
+    expect(ELPRIS_SAMTYKKE.tekst).toMatch(/mit navn, min e-mailadresse og mit postnummer/);
     expect(ELPRIS_SAMTYKKE.tekst).toMatch(/politik og politiske udspil/);
     expect(ELPRIS_SAMTYKKE.tekst).toMatch(/disse formål/);
-    const v1 = await db.query(`select 1 from samtykketekster where type = 'elpris' and version = 1`);
-    expect(v1).toHaveLength(1);
+    for (const v of [1, 2]) {
+      expect(await db.query(`select 1 from samtykketekster where type = 'elpris' and version = $1`, [v])).toHaveLength(1);
+    }
+    const [v2] = await db.query<{ tekst: string }>(`select tekst from samtykketekster where type = 'elpris' and version = 2`);
+    expect(v2.tekst).toMatch(/min e-mailadresse og mit postnummer/);
+    expect(v2.tekst).not.toMatch(/navn/);
     expect(await db.query(`select 1 from samtykketekster where type = 'politik'`)).toHaveLength(1);
   });
   it("kan ikke ændres eller slettes", async () => {
@@ -117,11 +124,11 @@ describe("tilmelding med double opt-in", () => {
     expect(await db.query(`select 1 from tilmeldte`)).toHaveLength(0);
   });
 
-  it("ét samtykke: version 2 gemmes, intet separat politisk samtykke oprettes, og feltet er ikke forhåndsafkrydset", async () => {
+  it("ét samtykke: den gældende version gemmes, intet separat politisk samtykke oprettes, og feltet er ikke forhåndsafkrydset", async () => {
     const af = falskAfsender();
     await tilmeld(db, af, input(), ctx);
     const s = await db.query<{ type: string; version: number }>(`select type, version from samtykker`);
-    expect(s).toEqual([{ type: "elpris", version: 2 }]);
+    expect(s).toEqual([{ type: "elpris", version: ELPRIS_SAMTYKKE.version }]);
     // gamle formularer, der sender det tidligere politiske felt, giver stadig kun ét samtykke
     await tilmeld(db, af, input({ email: "b@e.dk", politik_samtykke: true, politik_samtykke_version: 1 }), ctx);
     expect((await db.query(`select 1 from samtykker where type = 'politik'`)).length).toBe(0);
@@ -152,6 +159,37 @@ describe("tilmelding med double opt-in", () => {
     // Den nyere tekst accepteres ikke, før koden selv viser den.
     const r = await tilmeld(db, af, input({ email: "c@e.dk", samtykke_version: ELPRIS_SAMTYKKE.version + 1, samtykke_hash: tekstHash(nyTekst) }), ctx);
     expect(r.status).toBe("samtykke_foraeldet");
+  });
+
+  it("gemmer fornavn og efternavn, renset for overflødige mellemrum", async () => {
+    const af = falskAfsender();
+    expect(await tilmeld(db, af, input({ fornavn: "  Anna  Marie ", efternavn: " Hansen " }), ctx)).toEqual({ status: "ok" });
+    const [t] = await db.query<{ fornavn: string; efternavn: string }>(`select fornavn, efternavn from tilmeldte`);
+    expect(t).toEqual({ fornavn: "Anna Marie", efternavn: "Hansen" });
+  });
+
+  it("kræver fornavn og efternavn på højst 60 tegn", () => {
+    const fejl = (o: Record<string, unknown>) => {
+      const r = tilmeldingSkema.safeParse({ ...input(), ...o });
+      return r.success ? null : Object.fromEntries(r.error.issues.map((i) => [String(i.path[0]), i.message]));
+    };
+    expect(fejl({ fornavn: undefined })).toEqual({ fornavn: "Skriv dit fornavn" });
+    expect(fejl({ fornavn: "   " })).toEqual({ fornavn: "Skriv dit fornavn" });
+    expect(fejl({ efternavn: "" })).toEqual({ efternavn: "Skriv dit efternavn" });
+    expect(fejl({ efternavn: "x".repeat(61) })).toEqual({ efternavn: "Højst 60 tegn" });
+    expect(fejl({ fornavn: "x".repeat(60) })).toBeNull();
+  });
+
+  it("en ny tilmelding efter afmelding opdaterer navnet; en aktiv tilmelding røres ikke", async () => {
+    const af = falskAfsender();
+    await tilmeld(db, af, input(), ctx);
+    await tilmeld(db, af, input({ fornavn: "Anne" }), ctx); // stadig ubekræftet: fornyes
+    let [t] = await db.query<{ fornavn: string }>(`select fornavn from tilmeldte`);
+    expect(t.fornavn).toBe("Anne");
+    expect(await bekraeft(db, tokenFraMail(af.sendte[1].html), ctx.nu)).toBe(true);
+    await tilmeld(db, af, input({ fornavn: "Fremmed" }), ctx); // aktiv: ingen kan ændre en andens navn
+    [t] = await db.query<{ fornavn: string }>(`select fornavn from tilmeldte`);
+    expect(t.fornavn).toBe("Anne");
   });
 
   it("afviser ukendte postnumre og ugyldige e-mails", async () => {
@@ -257,7 +295,7 @@ describe("stop af den daglige mail, sletning og skift af postnummer", () => {
     expect(af.sendte).toHaveLength(1);
     expect(await bekraeft(db, tokenFraMail(af.sendte[0].html), ctx.nu)).toBe(true);
     const [s] = await db.query<{ version: number; status: string }>(`select version, status from samtykker`);
-    expect(s).toEqual({ version: 2, status: "aktiv" });
+    expect(s).toEqual({ version: ELPRIS_SAMTYKKE.version, status: "aktiv" });
   });
 
   it("oprydningen sletter aldrig personer, der har stoppet mailen", async () => {

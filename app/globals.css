@@ -45,6 +45,7 @@ main.side { max-width: 680px; }
 .forbehold { font-size: 13px; color: var(--daempet); border-left: 4px solid var(--kant); padding: 6px 12px; margin: 14px 0; background: #fff; }
 .prognose-boks { border-left: 4px solid var(--gul); background: var(--felt); padding: 10px 14px; margin: 0 0 10px; }
 .felter { display: grid; grid-template-columns: 1fr 160px; gap: 12px; }
+.felter.navne { grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
 .felt label { display: block; font-weight: bold; font-size: 14px; margin: 0 0 4px; }
 .felt input { width: 100%; padding: 11px 12px; font-size: 16px; border: 1px solid var(--daempet); border-radius: 3px; }
 .samtykke { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0 0; font-size: 14px; }
@@ -72,5 +73,6 @@ table.data th { background: var(--felt); }
   .top-indhold { padding: 12px 16px; }
   .logo { width: 48px; height: 48px; }
   .felter { grid-template-columns: 1fr 104px; gap: 10px; }
+  .felter.navne { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
   .top h1 { font-size: 22px; }
 }
