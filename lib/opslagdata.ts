@@ -1,7 +1,7 @@
 import { juraGodkendt } from "./config";
 import type { Db } from "./db";
 import { TESTKILDE_NAVN } from "./kilder/test";
-import { erFuldDag, opsummer, VINDUE_MINUTTER } from "./pris/dag";
+import { erFuldDag, opsummer, timeserie, VINDUE_MINUTTER } from "./pris/dag";
 import { hentSlots } from "./pris/lager";
 import { OMRAADER, type Omraade } from "./pris/typer";
 import { dagensGraenser, danskDato, laegDage } from "./tid";
@@ -29,6 +29,42 @@ export interface OmraadeDagData {
   billigste: { start: string; slut: string; gennemsnitOere: number } | null;
 }
 
+/** Den seneste uge (de syv dage før i dag): gennemsnitlig forskel mellem døgnets dyreste og billigste time. */
+export interface UgeTal {
+  fra: string;
+  til: string;
+  /** Antal hele døgn med rigtige priser, der indgår. */
+  dage: number;
+  /** Øre/kWh, kun spotpris. Null, når færre end fem hele døgn er kendt. */
+  gnsForskelOere: number | null;
+}
+
+const MIN_DAGE = 5;
+
+async function harTestdata(db: Db, omr: Omraade, dag: string): Promise<boolean> {
+  const { start, slut } = dagensGraenser(dag);
+  const [{ n }] = await db.query<{ n: number }>(
+    `select count(*)::int as n from spotpriser where omraade = $1 and start_utc >= $2 and start_utc < $3 and kilde = $4`,
+    [omr, start.toISOString(), slut.toISOString(), TESTKILDE_NAVN],
+  );
+  return n > 0;
+}
+
+export async function ugeTal(db: Db, omr: Omraade, idag: string): Promise<UgeTal> {
+  const fra = laegDage(idag, -7);
+  const til = laegDage(idag, -1);
+  const forskelle: number[] = [];
+  for (let i = 7; i >= 1; i--) {
+    const dag = laegDage(idag, -i);
+    const slots = await hentSlots(db, omr, dag);
+    if (!erFuldDag(dag, slots).fuld || (await harTestdata(db, omr, dag))) continue;
+    const timer = timeserie(slots).map((t) => t.oerePrKwh);
+    forskelle.push(Math.max(...timer) - Math.min(...timer));
+  }
+  const gns = forskelle.length >= MIN_DAGE ? forskelle.reduce((a, b) => a + b, 0) / forskelle.length : null;
+  return { fra, til, dage: forskelle.length, gnsForskelOere: gns };
+}
+
 export interface OpslagData {
   dato: string;
   imorgen: string;
@@ -39,6 +75,8 @@ export interface OpslagData {
   omraader: Record<Omraade, OmraadeOpslagData>;
   /** Dagens billigste periode for hvert område (priserne er kendt siden dagen før kl. 13). */
   idag: Record<Omraade, OmraadeDagData>;
+  /** Den seneste uge pr. område (storyen »Den seneste uge«). */
+  uge: Record<Omraade, UgeTal>;
 }
 
 async function dagData(db: Db, omr: Omraade, dag: string): Promise<OmraadeDagData> {
@@ -87,5 +125,7 @@ export async function opslagData(db: Db, nu: Date): Promise<OpslagData> {
   }
   const idag = {} as Record<Omraade, OmraadeDagData>;
   for (const omr of OMRAADER) idag[omr] = await dagData(db, omr, dato);
-  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, tilmeldingAaben: juraGodkendt(), omraader, idag };
+  const uge = {} as Record<Omraade, UgeTal>;
+  for (const omr of OMRAADER) uge[omr] = await ugeTal(db, omr, dato);
+  return { dato, imorgen, vindueMinutter: VINDUE_MINUTTER, tilmeldingAaben: juraGodkendt(), omraader, idag, uge };
 }
