@@ -1,3 +1,4 @@
+import { KILDER } from "./facebook-kilde";
 import { z } from "zod";
 import { omraadeForPostnummer } from "./omraade";
 
@@ -35,8 +36,8 @@ export const tilmeldingSkema = z.object({
   samtykke_hash: hash,
   // Honeypot: et skjult felt, som mennesker lader stå tomt.
   hjemmeside: z.string().nullish(),
-  // Kom personen via et link fra Facebook (?fra=fb-el)? Bruges kun til den anonyme optælling og gemmes ikke.
-  fra: z.enum(["fb-el"]).optional().catch(undefined),
+  // Kom personen via et mærket link (?fra=fb-el, benzinmail eller del-el)? Bruges kun til den anonyme optælling og gemmes ikke.
+  fra: z.enum(KILDER).optional().catch(undefined),
 });
 
 export type Tilmelding = z.output<typeof tilmeldingSkema>;

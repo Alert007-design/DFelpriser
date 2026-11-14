@@ -37,12 +37,14 @@ describe("tabellen kildetal", () => {
     await expect(ind("del", "besoeg")).rejects.toThrow();
     await expect(ind("fb-el", "side")).rejects.toThrow();
     await ind("fb-el", "besoeg");
+    await ind("benzinmail", "besoeg");
+    await ind("del-el", "tilmelding");
   });
 });
 
 describe("mærket fra=", () => {
-  it("kender kun fb-el", () => {
-    expect(erKilde("fb-el")).toBe(true);
+  it("kender fb-el, benzinmail og del-el", () => {
+    for (const x of ["fb-el", "benzinmail", "del-el"]) expect(erKilde(x)).toBe(true);
     for (const x of ["fb-benzin", "del", "FB-EL", "", null, undefined, 3]) expect(erKilde(x)).toBe(false);
   });
   it("læses fra adressen, og alt andet (fbclid osv.) ignoreres", () => {
@@ -60,6 +62,8 @@ describe("mærket fra=", () => {
   it("tilmeldingsskemaet tager imod fb-el og ignorerer alt andet", () => {
     const f = { fornavn: "Anna", efternavn: "Hansen", email: "a@b.dk", postnummer: "2100", samtykke: true, samtykke_version: ELPRIS_SAMTYKKE.version, samtykke_hash: tekstHash(ELPRIS_SAMTYKKE.tekst) };
     expect(tilmeldingSkema.parse({ ...f, fra: "fb-el" }).fra).toBe("fb-el");
+    expect(tilmeldingSkema.parse({ ...f, fra: "benzinmail" }).fra).toBe("benzinmail");
+    expect(tilmeldingSkema.parse({ ...f, fra: "del-el" }).fra).toBe("del-el");
     expect(tilmeldingSkema.parse({ ...f, fra: "fb-benzin" }).fra).toBeUndefined();
     expect(tilmeldingSkema.parse({ ...f, fra: "<script>" }).fra).toBeUndefined();
     expect(tilmeldingSkema.parse(f).fra).toBeUndefined();

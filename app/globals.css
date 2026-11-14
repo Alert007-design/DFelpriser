@@ -76,3 +76,12 @@ table.data th { background: var(--felt); }
   .felter.navne { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
   .top h1 { font-size: 22px; }
 }
+
+/* Siden /del: send tjenesten videre til en ven */
+.delbesked { margin: 0 0 18px; padding: 14px 16px; background: var(--felt); border-left: 4px solid var(--roed); font-size: 16px; line-height: 1.55; }
+.delknapper .knap { margin-top: 0; }
+.delknapper-tekst { margin: 16px 0 10px; font-size: 14px; color: var(--daempet); }
+.delknapper .delknapper-tekst:first-child { margin-top: 0; }
+.delknapper-raekke { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.delknap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 72px; padding: 10px 6px; background: #fff; color: var(--blaa); border: 1px solid var(--kant); border-radius: 4px; font: inherit; font-size: 14px; font-weight: bold; text-decoration: none; cursor: pointer; }
+.delknap:hover, .delknap:focus-visible { background: var(--blaa); color: #fff; }
