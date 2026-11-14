@@ -6,6 +6,7 @@ import type { DagsPrognose, Vurdering } from "../prognose/prognose";
 import { laesbarDato, stortFoerst, ugedag } from "../tid";
 import type { Mail } from "./afsender";
 import { grafHtml, type Soejle } from "./graf";
+import { DEL_MAIL_TEKST } from "../deling";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -42,6 +43,8 @@ export interface MailLinks {
   skiftPostnummer: string;
   /** Fuld sletning af alle oplysninger på personens egen anmodning (siden /slet med bekræftelse). */
   slet: string;
+  /** Siden /del, hvor modtageren kan sende tjenesten videre til en ven. Uden link vises linjen ikke. */
+  del?: string;
 }
 
 export interface PrognoseDel {
@@ -130,6 +133,10 @@ ${raekker
     ? `<tr><td style="padding:22px 0 0 0">${overskrift("Fra Dansk Folkeparti")}<div style="${FONT};font-size:14px;line-height:21px;color:${TEKST}">${esc(i.dfBudskab.trim()).replace(/\n/g, "<br>")}</div></td></tr>`
     : "";
 
+  const delHtml = i.links.del
+    ? `<tr><td style="padding:22px 0 0 0;${FONT};font-size:14px;line-height:21px;color:${TEKST}">${esc(DEL_MAIL_TEKST.foer)}<a href="${esc(i.links.del)}" style="color:${MOERKEBLAA};text-decoration:underline">${esc(DEL_MAIL_TEKST.link)}</a>${esc(DEL_MAIL_TEKST.efter)}</td></tr>`
+    : "";
+
   const link = (href: string, tekst: string) => `<a href="${esc(href)}" style="color:#c9d2e3;text-decoration:underline">${esc(tekst)}</a>`;
   const forhaand = `I morgen er strømmen billigst ${periodeTekst(d.billigste).toLowerCase()} i ${omrKort}`;
   const tid = (p: typeof d.billigste) => esc(periodeTekst(p).replace("Kl. ", "kl. "));
@@ -166,6 +173,7 @@ ${raekker
 <tr><td style="padding:0 0 22px 0">${overskrift("Priserne time for time")}${grafHtml(i.serie, d.billigste, d.dyreste, FONT)}</td></tr>
 <tr><td style="padding:0">${overskrift("Sammenlignet med de seneste dage")}${tabelHtml}</td></tr>
 ${budskabHtml}
+${delHtml}
 <tr><td style="padding:22px 0 0 0;${FONT};font-size:11px;line-height:17px;color:${DAEMPET}">${esc(KORT_FORBEHOLD)} Kilde: Energinet.</td></tr>
 </table></td></tr>
 <tr><td bgcolor="${BLAA}" class="pad" style="background-color:${BLAA};padding:22px 28px 28px 28px;${FONT};font-size:12px;line-height:18px;color:#c9d2e3">
@@ -187,7 +195,7 @@ Dyrest: ${periodeTekst(d.dyreste)} (${kronerPrKwh(d.dyreste.gennemsnit)} kr. pr.
 
 SAMMENLIGNET MED DE SENESTE DAGE (kr. pr. kWh, kun spotpris)
 ${raekker.map((r) => `${dagNavn(r.dato)}: lavest ${kronerPrKwh(r.laveste)}, højest ${kronerPrKwh(r.hoeyeste)}, gennemsnit ${kronerPrKwh(r.gennemsnit)}`).join("\n")}
-${i.dfBudskab?.trim() ? `\nFRA DANSK FOLKEPARTI\n${i.dfBudskab.trim()}\n` : ""}
+${i.dfBudskab?.trim() ? `\nFRA DANSK FOLKEPARTI\n${i.dfBudskab.trim()}\n` : ""}${i.links.del ? `\n${DEL_MAIL_TEKST.foer}${DEL_MAIL_TEKST.link}${DEL_MAIL_TEKST.efter.replace(/\.$/, "")}: ${i.links.del}\n` : ""}
 ${KORT_FORBEHOLD} Kilde: ${KILDE_TEKST}.
 
 Du får denne mail, fordi du har tilmeldt dig Dagens elpriser fra Dansk Folkeparti.

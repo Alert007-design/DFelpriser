@@ -1,3 +1,4 @@
+import { delSide } from "./deling";
 import { createHash } from "node:crypto";
 import type { Db } from "./db";
 import { juraGodkendt, valgfri } from "./config";
@@ -276,6 +277,7 @@ export async function udsend(
               stopEtKlik: `${appUrl}/api/afmeld?token=${t(afmeldToken(m.id))}`,
               skiftPostnummer: `${appUrl}/skift-postnummer?token=${t(skiftToken(m.id))}`,
               slet: `${appUrl}/slet?token=${t(sletToken(m.id))}`,
+              del: delSide(appUrl),
             },
           });
           return { ...mail, to: m.email };

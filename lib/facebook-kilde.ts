@@ -2,8 +2,11 @@ import type { Db } from "./db";
 import { sti } from "./sti";
 import { danskDato } from "./tid";
 
-/** Linket i første kommentar på Facebook: /el?fra=fb-el. Tælles anonymt; intet om personen gemmes. */
-export const KILDER = ["fb-el"] as const;
+/**
+ * Hvor besøgende kommer fra, tælles anonymt; intet om personen gemmes.
+ * fb-el: første kommentar på Facebook. benzinmail: boksen i benzinmailen. del-el: »send til en ven« i elpris-mailen.
+ */
+export const KILDER = ["fb-el", "benzinmail", "del-el"] as const;
 export type Kilde = (typeof KILDER)[number];
 export type KildeType = "besoeg" | "tilmelding";
 

@@ -1,0 +1,5 @@
+- [x] 1. Tests for kilder, mail-linjen og /del
+- [x] 2. Nye kilder (kode og migration)
+- [x] 3. Linjen i elpris-mailen
+- [x] 4. Siden /el/del
+- [x] 5. Typecheck, lint, tests og build
